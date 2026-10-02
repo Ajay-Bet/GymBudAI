@@ -10,6 +10,7 @@ import HomeLevelUp from "../components/HomeLevelUp"
 import HomeFreeTrial from "../components/HomeFreeTrial"
 import HomeDownloadable from "../components/HomeDownloadable"
 import Footer from "../components/Footer"
+import CameraView from"../components/CameraView"
 
 const HomePage = () => {
     return (
@@ -26,6 +27,7 @@ const HomePage = () => {
             <HomeFreeTrial/>
             <HomeDownloadable/>
             <Footer/>
+            <CameraView/>
         </>
     );
 }

@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>GymBud camera lifecycle diagnostic</title></head>
+<body><div style="padding:16px;background:white;color:#111827">
+<h1>Camera lifecycle integration diagnostic</h1>
+<p>The actual CameraView runs below with generated blank video and the real local pose worker. Camera requests are simulated on this isolated development page. No physical camera is used.</p>
+<label>Next camera request <select id="mode"><option value="immediate">Immediate success</option><option value="pending">Pending permission</option><option value="denied">Permission denied</option><option value="no-device">No camera device</option><option value="busy">Camera busy</option></select></label>
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0">
+<button type="button" id="resolve">Resolve pending permission</button><button type="button" id="end">End live track</button><button type="button" id="unmount">Unmount CameraView</button><button type="button" id="remount">Remount CameraView</button>
+</div><p id="mount-status">CameraView mounted</p><p id="diagnostic" role="status">Requests: 0; pending: 0; acquired streams: 0; live tracks: 0; ended tracks: 0</p><p id="track-details">No acquired tracks</p>
+</div><div id="root"></div><script type="module" src="./camera-smoke.jsx"></script></body></html>

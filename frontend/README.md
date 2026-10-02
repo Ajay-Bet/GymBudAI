@@ -27,8 +27,15 @@ If the check fails, verify the direct health URL first, confirm both terminals a
 ## Frontend checks
 
 ```sh
+npm test
 npm run lint
 npm run build
 ```
 
 These commands check source lint and production bundling. The browser check above separately verifies the live React-to-FastAPI integration.
+
+## Camera and pose preview
+
+The homepage camera section remains below the footer. It runs entirely in the browser; no FastAPI service is needed. Start and build automatically prepare pinned MediaPipe runtime/model assets (first model download is about 5.8 MB). `npm run vision:assets` also prepares or repairs them. Generated vendor files are excluded from Git.
+
+Use localhost or HTTPS with a current desktop browser supporting workers, ImageBitmap and OffscreenCanvas. See the [Sprint 1 camera guide](../docs/vision-sprint-01.md) for asset versions, the observation contract, positioning guidance, privacy boundary and physical-camera review checklist.

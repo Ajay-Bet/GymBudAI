@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><title>GymBud local vision diagnostic</title></head>
+<body><h1>Local synthetic vision diagnostic</h1>
+<p>This development diagnostic runs the real local pose worker on a generated blank video. It never requests webcam access. It cannot validate human pose accuracy.</p>
+<button id="start" type="button">Start synthetic video</button><button id="stop" type="button">Stop synthetic video</button>
+<p id="status" role="status">Stopped</p><p id="results">Results: 0</p><p id="tracks">Tracks: none</p>
+<video id="video" muted playsinline style="width:480px;max-width:100%"></video>
+<script type="module" src="./vision-smoke.mjs"></script></body></html>
