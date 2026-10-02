@@ -10,6 +10,7 @@ import ContactPage from "./pages/ContactPage"
 import LoginPage from "./pages/LoginPage"
 import RegisterPage from "./pages/RegisterPage"
 import ResetPasswordPage from "./pages/ResetPasswordPage"
+import HealthCheck from "./pages/HealthCheck"
 
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {import.meta.env.DEV && <Route path="/dev/health" element={<HealthCheck/>}/>}
         <Route path="/" element={<HomePage/>}/>
         <Route path="/contact" element={<ContactPage/>}/>
         <Route path ="/login" element={<LoginPage/>}/>

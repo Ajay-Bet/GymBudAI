@@ -1,16 +1,34 @@
-# React + Vite
+# GymBud frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React/Vite frontend. Use Node.js 22.12+ and npm; the installed Vite version also supports Node 20.19+ within the Node 20 release line. Dependencies resolve from the committed `package-lock.json` using `npm ci`.
 
-Currently, two official plugins are available:
+## Run locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+From the repository root:
 
-## React Compiler
+```sh
+cd frontend
+npm ci
+npm run dev
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Open <http://127.0.0.1:5173>. The development server binds to `127.0.0.1` and uses a strict port: it exits if 5173 is occupied instead of silently choosing another port. Stop it with `Ctrl+C`.
 
-## Expanding the ESLint configuration
+## Verify React can reach FastAPI
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+1. Start FastAPI at `127.0.0.1:8080` in another terminal using [backend setup](../backend/README.md).
+2. Open <http://127.0.0.1:5173/dev/health> and click **Check backend**.
+3. Confirm the success state. The button sends `GET /api/health`; Vite forwards it to `http://127.0.0.1:8080/health`, and React validates the `{"status":"ok"}` response.
+
+The request is same-origin from the browser's perspective, so this check needs no backend CORS setup. No frontend environment file or API key is needed. The health page is development-only, and this proxy is not a production deployment configuration. Existing `/users/login` and `/users/profile` calls remain unsupported until replacement APIs are implemented.
+
+If the check fails, verify the direct health URL first, confirm both terminals are still running, and retry. If you change the backend port, update the proxy target in `vite.config.js` and restart Vite. If the frontend port is occupied, stop the conflicting process you own before restarting. Use `npm run dev` for this check, rather than the production preview command.
+
+## Frontend checks
+
+```sh
+npm run lint
+npm run build
+```
+
+These commands check source lint and production bundling. The browser check above separately verifies the live React-to-FastAPI integration.
