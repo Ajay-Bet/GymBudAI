@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 52" width="220" height="52">
+
+  <!-- Minimal dumbbell icon -->
+  <!-- Left plate -->
+  <rect x="2" y="10" width="6" height="32" rx="2" fill="#1c1c1a"/>
+  <!-- Left collar -->
+  <rect x="10" y="16" width="4" height="20" rx="1.5" fill="#aaac93"/>
+  <!-- Bar -->
+  <rect x="14" y="22" width="22" height="8" rx="1.5" fill="#1c1c1a"/>
+  <!-- Right collar -->
+  <rect x="36" y="16" width="4" height="20" rx="1.5" fill="#aaac93"/>
+  <!-- Right plate -->
+  <rect x="42" y="10" width="6" height="32" rx="2" fill="#1c1c1a"/>
+
+  <!-- GymBud wordmark -->
+  <text
+    x="60"
+    y="36"
+    font-family="'Futura', 'Trebuchet MS', 'Century Gothic', sans-serif"
+    font-weight="700"
+    font-size="26"
+    letter-spacing="4"
+    fill="#1c1c1a"
+  >GYMBUD</text>
+
+</svg>
