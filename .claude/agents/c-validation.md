@@ -18,17 +18,23 @@ Update this file in the same change whenever any of these happen to this compone
 ## Contracts to keep
 
 - Reviews against the owning component's contract; reports defects to the owner rather than editing their source.
-- Synthetic results are labelled as synthetic, never as physical measurements.
+- Synthetic results are labelled as synthetic, never as physical measurements. Fixtures shaped from live numbers are labelled "synthetic, shaped from live peaks".
+- Curl tests track the analyzer contract and `CURL_CONFIG` curl-1.1.0; update version assertions on intended bumps.
 
 ## History
 
-- Sprint 1 (`s1-validation`) and Sprint 2 (`s2-validation`). 48 frontend tests pass as of Sprint 2.
+- Sprint 1 (`s1-validation`) and Sprint 2 (`s2-validation`). Sprint 3 (`s3-validation`) added `tests/fixtures/curl-fixtures.js`, `curl-analyzer.test.js`, `curl-pipeline.test.js`, `curl-fixes.test.js`; 106 frontend tests pass (synthetic) as of Sprint 3.
 
 ## Open carryover
 
 - Physical-camera evidence for Sprint 2 targets is still missing.
+- Sprint 3 exit target (three annotated recordings, ≤ 1 count error per 20 curls each) not run; recordings do not exist.
 
 ## Lessons learned
 
 - When a contract changes on purpose, update the old tests that asserted the replaced behaviour and say so in the report (Sprint 2).
 - Synthetic fixtures prove arithmetic only; physical targets need a real camera session recorded in the sprint record (Sprint 2).
+- Check summary extrema were observed inside [startMs, endMs]; run per-frame invariants on every fixture (Sprint 3).
+- Wait until parallel source edits settle before running and reporting (Sprint 3).
+- Test timing/stall rules across many seeds and noise levels and report rates, not one pass (Sprint 3).
+- Turn live-run defects into labelled fixtures and confirm they fail under the old configuration (Sprint 3).

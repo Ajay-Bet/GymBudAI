@@ -5,17 +5,63 @@ import { createTrackingValidator } from '../vision/tracking.js';
 import { createBiomechanicsEngine, FEATURE_SCHEMA } from '../biomechanics/engine.js';
 import { createStabilityTracker } from '../biomechanics/stability.js';
 import { clearPose, drawPose } from '../vision/drawPose.js';
+import { defaultExerciseRegistry } from '../exercises/analyzer.js';
+import CurlPanel from './CurlPanel.jsx';
 
 const EMPTY_METRICS = { captureFps: 0, poseFps: 0, inferenceMs: 0, overlayMs: 0, joints: 'Not assessed' };
 const INITIAL_TRACKING = { state: 'lost', message: 'Start the camera to begin tracking.' };
+const EXERCISE_ID = 'dumbbell-curl';
 
+// Clears the analyzer's phase, attempt, completed reps and count. Used only for camera start
+// (session restart), side change and the explicit Reset set button.
+function resetAnalyzer(runtime, reason) {
+  if (!runtime.analyzer) return;
+  const output = runtime.analyzer.reset(reason);
+  runtime.curlKey = null;
+  runtime.publishCurl?.(output ?? null);
+  runtime.publishCurlSession?.(runtime.analyzer.getSession());
+}
+
+// Ends any in-progress attempt (reason 'tracking-loss' or 'recalibration') and keeps completed reps.
+// The analyzer uses its last processed timestamp as the end time.
+function interruptAnalyzer(runtime, reason) {
+  if (!runtime.analyzer) return;
+  const output = runtime.analyzer.interrupt(reason);
+  runtime.curlKey = null;
+  runtime.publishCurl?.(output);
+  if (output.events.length) runtime.publishCurlSession?.(runtime.analyzer.getSession());
+}
+
+// Stale results, mute, tracking loss and stop clear measurements and interrupt the current attempt,
+// but never reset the analyzer: completed reps and the set summary stay visible.
 function clearMeasurements(runtime, reason = 'Start calibration after tracking recovers.') {
+  interruptAnalyzer(runtime, 'tracking-loss');
   runtime.biomechanics?.reset(reason);
   runtime.stability?.reset();
   runtime.publishFeatures?.(null);
   runtime.publishStability?.(null);
   runtime.publishCalibration?.(runtime.biomechanics?.getCalibration());
   runtime.lastFeaturePublish = null;
+}
+
+// Starts baseline collection (manual button or auto-calibration). Ends any in-progress attempt
+// but keeps completed reps.
+function startCalibration(runtime) {
+  interruptAnalyzer(runtime, 'recalibration');
+  runtime.stability.reset();
+  runtime.publishStability?.(null);
+  runtime.lastFeaturePublish = null;
+  runtime.publishCalibration?.(runtime.biomechanics.calibrate());
+}
+
+// Auto-calibration starts only from a relaxed arm so a bent arm mid-set is never used as the baseline.
+// The engine restarts collection on movement, so the user only needs to hold still once in position.
+const AUTO_CALIBRATE_MAX_FLEXION_DEG = 40;
+const AUTO_CALIBRATE_MIN_INTERVAL_MS = 1000;
+function shouldAutoCalibrate(runtime, frame) {
+  return runtime.autoCalibrate && frame.calibration.status === 'uncalibrated' && frame.trackingState === 'active'
+    && frame.orientation.valid && Number.isFinite(frame.raw?.elbowFlexionDeg) && frame.raw.elbowFlexionDeg <= AUTO_CALIBRATE_MAX_FLEXION_DEG
+    && (runtime.lastAutoCalibrateMs == null || frame.timestampMs - runtime.lastAutoCalibrateMs >= AUTO_CALIBRATE_MIN_INTERVAL_MS);
 }
 
 // Display labels for the engine's machine unit codes; values come from the feature schema or frame.
@@ -54,7 +100,7 @@ function releaseSession(runtime) {
 const CameraView = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const runtimeRef = useRef({ generation: 0, running: false, videoFrame: null, animation: null });
+  const runtimeRef = useRef({ generation: 0, running: false, videoFrame: null, animation: null, autoCalibrate: true, lastAutoCalibrateMs: null });
   const [camera, setCamera] = useState('off');
   const [model, setModel] = useState('Not loaded');
   const [tracking, setTracking] = useState(INITIAL_TRACKING);
@@ -68,6 +114,9 @@ const CameraView = () => {
   const [features, setFeatures] = useState(null);
   const [calibration, setCalibration] = useState(null);
   const [stability, setStability] = useState(null);
+  const [autoCalibrate, setAutoCalibrate] = useState(true);
+  const [curl, setCurl] = useState(null);
+  const [curlSession, setCurlSession] = useState(null);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
@@ -80,6 +129,9 @@ const CameraView = () => {
     runtime.publishFeatures = setFeatures;
     runtime.publishStability = setStability;
     runtime.publishCalibration = setCalibration;
+    runtime.analyzer = defaultExerciseRegistry.create(EXERCISE_ID);
+    runtime.publishCurl = setCurl;
+    runtime.publishCurlSession = setCurlSession;
     runtime.manager = createCameraManager({
       video: runtime.video,
       onEnded: () => {
@@ -135,6 +187,7 @@ const CameraView = () => {
       return;
     }
     clearMeasurements(runtime);
+    resetAnalyzer(runtime, 'session-restart');
     runtime.running = true;
     runtime.muted = false;
     const session = ++runtime.generation;
@@ -185,13 +238,24 @@ const CameraView = () => {
           const next = runtime.validator.update(result.landmarks, result.timestampMs);
           setTracking((previous) => previous.state === next.state && previous.message === next.message ? previous : next);
           const frame = runtime.biomechanics.update(result, next);
+          if (shouldAutoCalibrate(runtime, frame)) {
+            runtime.lastAutoCalibrateMs = frame.timestampMs;
+            startCalibration(runtime);
+          }
           // Stability is updated on every engine frame; only its publication is throttled.
           const stable = runtime.stability.update(frame);
+          // The analyzer sees every frame (not-ready ones pause or interrupt it). Rep events are stored at once.
+          const curlOutput = runtime.analyzer.update(frame);
+          if (curlOutput.events.length) setCurlSession(runtime.analyzer.getSession());
+          const curlKey = JSON.stringify([curlOutput.phase, curlOutput.paused, curlOutput.pauseReason, curlOutput.repCount,
+            curlOutput.attempt?.id ?? null, curlOutput.candidateIssues.map((issue) => issue.type)]);
           // Throttle changing numbers, but publish validity and readiness changes immediately.
           const validityKey = JSON.stringify([frame.validity, frame.ready, frame.calibration.status, frame.calibration.message, frame.reasons]);
-          if (runtime.lastFeaturePublish === null || result.timestampMs - runtime.lastFeaturePublish >= 100 || validityKey !== runtime.featureValidityKey) {
+          if (runtime.lastFeaturePublish === null || result.timestampMs - runtime.lastFeaturePublish >= 100 || validityKey !== runtime.featureValidityKey || curlKey !== runtime.curlKey) {
             setFeatures(frame);
-            setCalibration(frame.calibration);
+            setCurl(curlOutput);
+            runtime.curlKey = curlKey;
+            setCalibration(runtime.biomechanics.getCalibration());
             setStability(stable);
             runtime.lastFeaturePublish = result.timestampMs;
             runtime.featureValidityKey = validityKey;
@@ -285,18 +349,22 @@ const CameraView = () => {
     runtime.validator.setSide(value);
     runtime.biomechanics.setSide(value);
     clearMeasurements(runtime, 'Arm changed. Calibrate the selected arm again.');
+    resetAnalyzer(runtime, 'side-change');
     runtime.result = null;
     clearPose(runtime.canvas);
     setTracking({ state: 'lost', message: `Reacquiring your anatomical ${value} arm.` });
   };
   const calibrate = () => {
-    const runtime = runtimeRef.current;
     setFeatures(null);
-    runtime.stability.reset();
-    setStability(null);
-    runtime.lastFeaturePublish = null;
-    setCalibration(runtime.biomechanics.calibrate());
+    // Recalibration keeps the set but ends any in-progress attempt.
+    startCalibration(runtimeRef.current);
   };
+  const changeAutoCalibrate = (event) => {
+    setAutoCalibrate(event.target.checked);
+    runtimeRef.current.autoCalibrate = event.target.checked;
+  };
+  const awaitingAuto = autoCalibrate && (!calibration || calibration.status === 'uncalibrated') && !features?.ready;
+  const resetSet = () => resetAnalyzer(runtimeRef.current, 'user-reset');
   const busy = camera === 'starting' || camera === 'on';
   return (
     <section className="px-6 py-12 bg-[#24201f] text-white" aria-labelledby="camera-heading">
@@ -329,9 +397,11 @@ const CameraView = () => {
         <div className="mt-5 lg:mt-0 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
         <div className="rounded-lg border border-zinc-600 p-4 text-sm">
           <h3 className="font-bold text-[#7ccc44]">Curl measurements · {side} arm · side-on view</h3>
-          <p className="mt-2" role="status" aria-live="polite"><strong>Readiness:</strong> {features?.ready ? 'Ready — calibrated measurements available.' : calibration?.message || 'Start the camera, then calibrate your comfortable starting posture.'}</p>
+          <p className="mt-2" role="status" aria-live="polite"><strong>Readiness:</strong> {features?.ready ? 'Ready — calibrated measurements available.' : awaitingAuto ? "Get into position side-on with your arm relaxed; calibration starts automatically." : calibration?.message || 'Start the camera, then calibrate your comfortable starting posture.'}</p>
+          {awaitingAuto && calibration?.message && <p className="text-gray-300">{calibration.message}</p>}
           {calibration?.status === 'collecting' && <p>Stable observation progress: {Math.round((calibration.progress || 0) * 100)}%</p>}
           <button type="button" onClick={calibrate} disabled={camera !== 'on' || muted} className="mt-3 px-4 py-2 rounded-lg bg-zinc-700 disabled:opacity-50">{calibration?.status === 'ready' ? 'Recalibrate' : 'Calibrate starting posture'}</button>
+          <label className="mt-3 ml-3 inline-flex gap-2 items-center"><input type="checkbox" checked={autoCalibrate} onChange={changeAutoCalibrate} />Auto-calibrate when I'm in position</label>
           <p className="mt-2 text-gray-300">Calibration clears the previous baseline. Hold still until ready; hiding a required joint makes measurements unavailable.</p>
           <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2">
             <div><dt>Elbow flexion</dt><dd>{measurement(features, 'elbowFlexionDeg')}</dd></div>
@@ -341,8 +411,9 @@ const CameraView = () => {
             <div><dt>Upper-arm drift from baseline</dt><dd>{measurement(features, 'upperArmDriftDeg')}</dd></div>
             <div><dt>Torso deviation from baseline</dt><dd>{measurement(features, 'torsoDeviationDeg')}</dd></div>
           </dl>
-          <p className="mt-3 text-gray-300">These are projected 2D measurements, not a form assessment. Camera perspective affects them. No repetitions or coaching are generated.</p>
+          <p className="mt-3 text-gray-300">These are projected 2D measurements, not a form assessment. Camera perspective affects them. Reps are counted below; no coaching is generated.</p>
         </div>
+        <CurlPanel side={side} output={curl} session={curlSession} measurementsReady={features?.ready === true} calibration={calibration} onResetSet={resetSet} canReset={Boolean(curl || curlSession?.completedReps?.length || curlSession?.interruptedAttempts?.length)} />
         <details className="mt-5 text-sm text-gray-300">
           <summary className="cursor-pointer">Developer performance and tracking</summary>
           {import.meta.env.DEV && <p className="mt-2">Elbow flexion comparison — raw: {Number.isFinite(features?.raw?.elbowFlexionDeg) ? `${features.raw.elbowFlexionDeg.toFixed(1)} °` : 'Not assessed'} · smoothed: {Number.isFinite(features?.smoothed?.elbowFlexionDeg) ? `${features.smoothed.elbowFlexionDeg.toFixed(1)} °` : 'Not assessed'}</p>}
