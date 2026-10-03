@@ -17,21 +17,23 @@ Update this file in the same change whenever any of these happen to this compone
 
 ## Contracts to keep
 
-- `FEATURE_SCHEMA` and the `FeatureFrame` typedef in `engine.js` (version 1.0.0, coordinate space `unmirrored-image-height`, units for every value). Invalid values are `null` with validity `false`, never 0.
+- `FEATURE_SCHEMA` and the `FeatureFrame` typedef in `engine.js` (version 1.1.0, coordinate space `unmirrored-image-height`, units for every value). Invalid values are `null` with validity `false`, never 0.
+- Calibration snapshot (`CalibrationSnapshot`) includes `baselineElbowFlexionDeg`: mean raw flexion of the accepted calibration samples, a number only while status is `ready`, else null (added Sprint 3 for the curl analyzer).
 - `createBiomechanicsEngine({ side, view, config })` → `update(result, tracking)`, `calibrate()`, `reset()`, `setSide()`, `setView()`, `getCalibration()`.
 - `createStabilityTracker()` and `measureStepDelay()` in `stability.js`.
 - Guide: `docs/biomechanics-sprint-02.md`. Bump `FEATURE_SCHEMA.version` on any change to meaning or units.
 
 ## History
 
-- Sprint 2 built it (`s2-biomechanics`).
+- Sprint 2 built it (`s2-biomechanics`). Sprint 3 added `baselineElbowFlexionDeg` and bumped the schema to 1.1.0 (`s3-exercises`).
 
 ## Open carryover
 
-- Per-frame velocity varies with frame spacing; use a windowed or filtered derivative before analyzers threshold on it.
+- Per-frame `elbowAngularVelocityDegS` still varies with frame spacing; the curl analyzer uses its own windowed slope instead, so no analyzer depends on it.
 - Stationary variation (< 5°) and smoothing delay (< 150 ms) not yet measured on a real body.
 - Exact side-on hides the elbow behind the torso; consider an oblique (~30°) supported view.
 - `releaseConfidence`, `dropoutGraceMs`, `maxOrientationRatio` are untuned defaults.
+- Any tracking loss over the 250 ms grace window clears calibration; the UI's auto-calibration now recovers it, but a longer grace or baseline retention could be considered.
 
 ## Lessons learned
 

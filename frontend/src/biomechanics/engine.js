@@ -21,13 +21,24 @@ export const DEFAULT_CONFIG = Object.freeze({ confidence: 0.5, releaseConfidence
  * the selected anatomical side, measured in aspect-corrected unmirrored image coordinates.
  */
 export const FEATURE_SCHEMA = Object.freeze({
-  version: '1.0.0',
+  version: '1.1.0',
   coordinateSpace: 'unmirrored-image-height',
   units: Object.freeze({ elbowInteriorDeg: 'deg', elbowFlexionDeg: 'deg', torsoTiltDeg: 'deg',
     upperArmTiltDeg: 'deg', elbowDisplacement: 'torso-lengths', upperArmDriftDeg: 'deg',
     torsoDeviationDeg: 'deg', elbowAngularVelocityDegS: 'deg/s', elbowVelocityPerS: 'torso-lengths/s' }),
+  // 1.1.0 (Sprint 3, additive): calibration snapshots carry baselineElbowFlexionDeg.
   normalization: 'elbowDisplacement and elbowVelocityPerS use the elbow position relative to the shoulder divided by the current smoothed shoulder-hip (torso) segment length for the selected side; angles are unnormalized degrees.',
 });
+
+/**
+ * @typedef {Object} CalibrationSnapshot
+ * @property {'uncalibrated'|'collecting'|'ready'} status
+ * @property {number} progress 0-1.
+ * @property {string} message User-facing guidance.
+ * @property {number|null} baselineElbowFlexionDeg Mean raw (unsmoothed) elbow flexion in degrees over
+ *   the accepted calibration samples (relaxed arm). A number only while status is 'ready'; otherwise
+ *   null. Added in feature schema 1.1.0 for analyzer thresholds relative to the calibrated bottom.
+ */
 
 /**
  * @typedef {Object} FeatureFrame
@@ -39,7 +50,7 @@ export const FEATURE_SCHEMA = Object.freeze({
  * @property {Object<string,string>} units FEATURE_SCHEMA.units.
  * @property {boolean} ready Calibration ready, orientation valid and tracking active.
  * @property {string} trackingState Tracking state supplied by vision.
- * @property {{status: string, progress: number, message: string}} calibration
+ * @property {CalibrationSnapshot} calibration
  * @property {{valid: boolean, ratio: number|null, farSideReliable: boolean}} orientation Approximate
  *   side-on check; far-side shoulder/hip may be low-visibility estimates (farSideReliable false).
  * @property {Object<string,number|null>} raw Unsmoothed geometry (degrees).
@@ -73,7 +84,8 @@ export function createBiomechanicsEngine({ side = 'left', view = 'side', config 
   let dropoutSince = null;
   const releaseConfidence = Math.min(settings.releaseConfidence, settings.confidence);
   let calibration = { status: 'uncalibrated', progress: 0, message: 'Choose your side, stand sideways and calibrate with your arm relaxed.' };
-  const snapshot = () => ({ ...calibration });
+  const snapshot = () => ({ ...calibration,
+    baselineElbowFlexionDeg: calibration.status === 'ready' && baseline ? baseline.elbowFlexion : null });
   function reset(reason = 'Calibration cleared. Hold still and calibrate again.') {
     lastTimestamp = null; dimensions = null; filtered = null; previous = null; baseline = null; samples = [];
     dropoutSince = null;
@@ -197,7 +209,8 @@ export function createBiomechanicsEngine({ side = 'left', view = 'side', config 
         const mean = (fn) => samples.reduce((sum, s) => sum + fn(s), 0) / samples.length;
         baseline = { torso: mean((s) => s.torso), shoulder: { x: mean((s) => s.shoulder.x), y: mean((s) => s.shoulder.y) },
           relative: { x: mean((s) => s.relative.x), y: mean((s) => s.relative.y) },
-          upperArm: mean((s) => s.geometry.upperArmTiltDeg), torsoTilt: mean((s) => s.geometry.torsoTiltDeg) };
+          upperArm: mean((s) => s.geometry.upperArmTiltDeg), torsoTilt: mean((s) => s.geometry.torsoTiltDeg),
+          elbowFlexion: mean((s) => s.geometry.elbowFlexionDeg) };
         samples = [];
         calibration = { status: 'ready', progress: 1, message: 'Calibration ready for local feature measurements.' };
       }

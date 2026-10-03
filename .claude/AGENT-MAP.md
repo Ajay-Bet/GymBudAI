@@ -34,5 +34,8 @@ The "Lead" role in each sprint is the sprint chat itself, so it has no agent fil
 | `s2-biomechanics` | `docs/sprints/sprint-02.md` | Biomechanics specialist | `c-biomechanics` (and `tracking.js` in `c-vision` for the dropout fix) | Retired |
 | `s2-calibration-ui` | `docs/sprints/sprint-02.md` | Calibration UI specialist | `c-camera-ui` | Retired |
 | `s2-validation` | `docs/sprints/sprint-02.md` | Independent validation specialist | `c-validation` | Retired |
+| `s3-exercises` | `docs/sprints/sprint-3-STATUS.md` | Exercise analyzer specialist | `c-exercises` (and the additive `engine.js` field in `c-biomechanics`) | Retired |
+| `s3-workout-ui` | `docs/sprints/sprint-3-STATUS.md` | Workout UI specialist | `c-camera-ui` | Retired |
+| `s3-validation` | `docs/sprints/sprint-3-STATUS.md` | Independent validation specialist | `c-validation` | Retired |
 
-Sprints 3–12 have no sprint agents yet. Each sprint chat creates its own `sN-` agents from the component files and adds rows here.
+Sprints 4–12 have no sprint agents yet. Each sprint chat creates its own `sN-` agents from the component files and adds rows here.
