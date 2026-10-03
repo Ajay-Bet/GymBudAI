@@ -19,4 +19,4 @@
 ## Shared Codex and Claude Code setup
 
 - Codex and Claude Code follow the same rules, agents and records. Read `docs/MASTER.md` and `docs/WORKFLOW.md` at the start of every chat; `WORKFLOW.md` defines the master/sprint chat workflow, sprint record names and shared agents.
-- When spawning a specialist, use its definition in `.claude/agents/sN-<role>.md` (indexed in `.claude/AGENT-MAP.md`) as the agent's brief. Create missing `sN-` definitions there as `WORKFLOW.md` describes.
+- Agents come in two layers (see `WORKFLOW.md`): standing component agents `.claude/agents/c-<component>.md` and per-sprint agents `.claude/agents/sN-<role>.md`, indexed in `.claude/AGENT-MAP.md`. Inside a sprint, use that sprint's `sN-` agents, briefed from the component files they touch; outside a sprint, use the owning `c-` agent. When a sprint closes, update the touched component files and retire its `sN-` agents. Keep component files and sprint records current as things happen (contract changes, decisions, defects, real-world findings), as `WORKFLOW.md` describes under "Keeping agent knowledge current".

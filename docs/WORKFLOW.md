@@ -13,10 +13,11 @@ Codex reads this through `AGENTS.md`; Claude Code reads it through `CLAUDE.md`. 
 - **Sprint chats.** Each sprint has its own chat. A sprint chat starts with a message giving the sprint number and that sprint's requirements doc.
 - A sprint chat:
   - saves its requirements to `docs/sprints/sprint-N.md`;
-  - uses only that sprint's `sN-` agents;
+  - uses that sprint's `sN-` agents, briefed from the component agents they touch;
   - works only on that sprint's scope;
-  - updates `docs/sprints/sprint-N-STATUS.md` before stopping.
-- Sprint chats don't change `docs/MASTER.md`, `AGENTS.md`, `CLAUDE.md`, this file or other sprints' files.
+  - updates `docs/sprints/sprint-N-STATUS.md` before stopping;
+  - on completion, updates the touched `c-` component agent files and retires its `sN-` agents.
+- Sprint chats don't change `docs/MASTER.md`, `AGENTS.md`, `CLAUDE.md`, this file or other sprints' files. Component agent files (`.claude/agents/c-*.md`) are the exception: the sprint chat updates them when closing the sprint.
 
 ## Sprint records
 
@@ -25,11 +26,26 @@ Codex reads this through `AGENTS.md`; Claude Code reads it through `CLAUDE.md`. 
 
 ## Shared agents
 
-- Specialist agents are defined once in `.claude/agents/sN-<role>.md`, indexed in `.claude/AGENT-MAP.md`. Each file is plain Markdown: a short frontmatter header (`name`, `description`), then the agent's instructions.
+Agents come in two layers. The user chose this on 2026-10-03, replacing the earlier per-sprint-only setup.
+
+- **Component agents** (`c-<component>`) are the standing owners. Each owns a part of the codebase (for example `c-biomechanics` owns `frontend/src/biomechanics/*`) and its file records that component's owned paths, contracts, history and open carryover. Between sprints, and for work outside a sprint, chats route work to the owning component agent.
+- **Sprint agents** (`sN-<role>`) exist only while sprint N is open. A sprint chat creates them for its scope. Each sprint agent's brief is the matching component agent file(s) plus the sprint's requirements, and it may only edit files its component agents own (or new files the sprint assigns to a component).
+- **Closing a sprint reverts work to the components.** Before a sprint is marked complete, the sprint chat updates each touched component agent file (new contracts, ownership changes, history line, carryover), adds any new component agent a new folder needs, and marks the sprint's `sN-` agents retired in `.claude/AGENT-MAP.md`. Retired sprint agent files stay as history and are not used again.
+- Every agent file is plain Markdown in `.claude/agents/`, indexed in `.claude/AGENT-MAP.md`: a short frontmatter header (`name`, `description`), then the agent's instructions, starting with "Follow the GymBud master instructions in AGENTS.md first. Sprint rules come second."
 - Claude Code loads these files as subagents directly. Codex uses the same file's instructions as the brief when it spawns that specialist.
 - The sprint chat itself is the lead, so the lead has no agent file.
-- If a sprint has no `sN-` agents yet, its sprint chat creates them in `.claude/agents/` before delegating, and adds them to `.claude/AGENT-MAP.md`. Each new agent's instructions start with: "Follow the GymBud master instructions in AGENTS.md first. Sprint rules come second."
-- Agents are briefed fresh in every chat from these files and the sprint records. Nothing carries over in agent memory between chats.
+- Agents are briefed fresh in every chat from these files and the sprint records. Nothing carries over in agent memory between chats; the component files are how knowledge carries over.
+
+## Keeping agent knowledge current
+
+Agents teach the next agent by writing things down as they happen, not only at sprint close.
+
+- **Component files stay live.** Whenever a contract, unit, threshold or owned path changes, a decision is made, or a defect, review finding or real-world test teaches something, the owning component's `c-` file is updated in the same change (its Contracts, History, Open carryover and Lessons learned sections).
+- **Sprint records stay live.** The sprint chat records decisions, evidence and user feedback in its sprint record as they happen.
+- **One writer per file.** A sprint or component agent updates only the component files it owns. Anyone else (for example validation reporting a defect) sends the update to the lead, who writes it. This avoids concurrent edits.
+- **Briefs include the knowledge.** Every new `sN-` agent is briefed with the full component files it touches, including Lessons learned, so earlier lessons carry forward.
+- **Reports name the write-back.** Each agent report ends by listing what it added or changed in component files and sprint records, or says "no knowledge updates".
+- **Sprint close check.** Before a sprint is marked complete, the lead confirms every touched component file reflects the sprint, then retires the sprint agents.
 
 ## Commits
 
