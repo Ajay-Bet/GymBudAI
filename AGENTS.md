@@ -15,3 +15,8 @@
 - Create fresh specialist subagents as needed in each new sprint chat and give them the saved project and sprint context. Do not imply that subagents or their transient memory persist between chats. Separate sidebar chats are created only when requested.
 - Preserve unrelated local changes. Inspect existing code before replacing it. The user has explicitly decided to remove the Java/Spring backend and implement Python/FastAPI as specified in the original project instructions. This stack decision is settled; follow the original sprint sequence and do not reopen the decision or require further approval for it. Do not describe the target stack as already implemented.
 - Close each work session with an updated sprint handoff and a concise report of changes, checks actually run, remaining limitations, and the next action. Never mark a sprint complete without acceptance evidence.
+
+## Shared Codex and Claude Code setup
+
+- Codex and Claude Code follow the same rules, agents and records. Read `docs/MASTER.md` and `docs/WORKFLOW.md` at the start of every chat; `WORKFLOW.md` defines the master/sprint chat workflow, sprint record names and shared agents.
+- When spawning a specialist, use its definition in `.claude/agents/sN-<role>.md` (indexed in `.claude/AGENT-MAP.md`) as the agent's brief. Create missing `sN-` definitions there as `WORKFLOW.md` describes.

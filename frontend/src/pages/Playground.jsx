@@ -4,6 +4,7 @@ import hero_bg from "../assets/test/learnhub_hero_bg.svg"
 import phone_left from "../assets/test/phone-left.png"
 import phone_center from "../assets/test/phone-center.png"
 import phone_right from "../assets/test/phone-right.png"
+import CameraView from "../components/CameraView"
 
 const Playground = () => {
     const[open, setOpen] = useState(false);

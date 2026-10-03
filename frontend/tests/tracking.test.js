@@ -9,9 +9,12 @@ test('tracking requires sustained visibility and recovers after person loss', ()
   const tracker = createTrackingValidator();
   assert.equal(tracker.update(pose(), 0).state, 'partial');
   assert.equal(tracker.update(pose(), 300).state, 'active');
-  assert.equal(tracker.update([], 400).state, 'lost');
-  assert.equal(tracker.update(pose(), 500).state, 'partial');
-  assert.equal(tracker.update(pose(), 800).state, 'active');
+  // Losing the person while active is a graced dropout; past graceMs (250 ms) tracking is lost.
+  assert.equal(tracker.update([], 400).state, 'partial');
+  assert.equal(tracker.update([], 500).dropout, true);
+  assert.equal(tracker.update([], 700).state, 'lost');
+  assert.equal(tracker.update(pose(), 800).state, 'partial');
+  assert.equal(tracker.update(pose(), 1100).state, 'active');
 });
 
 test('low confidence, frame gaps, and invalid timestamps reset stable tracking', () => {
@@ -21,10 +24,12 @@ test('low confidence, frame gaps, and invalid timestamps reset stable tracking',
   const occluded = pose();
   occluded[13].visibility = 0.1;
   assert.equal(tracker.update(occluded, 400).state, 'partial');
-  assert.equal(tracker.update(pose(), 500).state, 'partial');
-  assert.equal(tracker.update(pose(), 800).state, 'active');
-  assert.equal(tracker.update(pose(), 1400).state, 'partial');
-  assert.equal(tracker.update(pose(), 1400).state, 'lost');
+  // Occlusion longer than graceMs (250 ms) resets stability.
+  assert.equal(tracker.update(occluded, 700).state, 'partial');
+  assert.equal(tracker.update(pose(), 800).state, 'partial');
+  assert.equal(tracker.update(pose(), 1100).state, 'active');
+  assert.equal(tracker.update(pose(), 1700).state, 'partial');
+  assert.equal(tracker.update(pose(), 1700).state, 'lost');
   assert.equal(tracker.update(pose(), Number.NaN).state, 'lost');
 });
 

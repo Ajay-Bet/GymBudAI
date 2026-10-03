@@ -1,7 +1,7 @@
 # Sprint 01 — Camera and pose detection
 
 Status: complete for the user-accepted local Sprint 1 scope; quantitative benchmark and remote CI evidence remain carryover
-Last updated: 2026-10-02
+Last updated: 2026-10-03
 
 ## Scope and acceptance criteria
 
@@ -67,3 +67,99 @@ Last updated: 2026-10-02
 - Files: CameraView is the UI; vision/CameraManager owns capture; vision/PoseEngine and pose.worker own detection; tracking and drawPose own quality/display; scripts/prepare-vision-assets.mjs owns reproducible asset preparation; tests own repeatable checks and development diagnostics. package/lockfile, ignore/lint configuration and frontend README support these additions. `.github/workflows/frontend.yml` adds checks but awaits a remote run.
 - Full source/contract/setup explanation and beginner-friendly camera-to-pose flow: [camera guide](../vision-sprint-01.md). No test videos, frames or landmark datasets were stored.
 - Retrospective improvement: keep a deterministic browser camera harness alongside lifecycle unit tests. Owner: lead; verify it again before the next camera lifecycle change. Check date: next camera lifecycle change or Sprint 2 integration review.
+
+## Open items against the source document — 2026-10-03
+
+Setup-only pass from a Claude Code Sprint 1 chat. No app code was changed. Each item is checked against the converted requirements below and the evidence above.
+
+- **Entry requirements not evidenced:** remote CI has never run (`.github/workflows/frontend.yml` exists, no run recorded); the curl camera view and test devices are proposals, not team-agreed.
+- **Exit criterion not measured:** five-minute session on a reference device with capture FPS, analyzed FPS and inference latency. No device is named and no numbers are recorded.
+- **Verification checklist gaps:** physical unplug/reconnect, physical permission allow/deny/retry observed by an agent, reviewed human pose and partial-occlusion examples.
+- **Handoff gap:** the document asks for supported-device notes for Sprint 2. The [camera guide](../vision-sprint-01.md) lists browser capability requirements but no tested browser/OS/device.
+- **Other carryover:** 16 `npm audit` advisories in other frontend packages, cross-browser coverage, existing homepage React DOM-property warnings.
+- **Agents:** `s1-camera-ui`, `s1-vision` and `s1-validation` in `.claude/agents/` match the roles in "Agent assignments" above and are indexed in `.claude/AGENT-MAP.md`.
+- **Record layout:** per `docs/WORKFLOW.md`, Sprint 1 keeps this single record, so there is no separate `sprint-1.md` or `sprint-1-STATUS.md`.
+
+## Source requirements (converted from DOCX)
+
+Converted with pandoc from `~/Downloads/GymBud_Master_and_Sprints_01-12/GymBud_Sprint_01_Camera_and_Pose_Detection.docx` on 2026-10-03. Headings demoted; text unchanged.
+
+Deliver a live camera view with a correctly aligned skeleton, visible tracking status, and reliable recovery when the user or camera disappears.
+
+Dates and owners are assigned at sprint planning. Proposed acceptance targets are reviewed before implementation and are not claims of measured performance.
+
+### Entry requirements
+
+Sprint 0 is complete. React and FastAPI run locally, CI works, and the team has agreed on the curl prototype camera view and initial test devices.
+
+### Sprint scope
+
+Support one person and one selected camera. Include camera permission states, a mirrored preview, landmark drawing, tracking quality, and a bounded processing loop. Exercise counting and form judgments start in later sprints.
+
+### Sprint backlog
+
+### GB 101 Camera lifecycle
+
+As a user, I can start and stop my camera so I control when GymBud captures my image.
+
+Acceptance criteria Allow, deny, missing-device, and device-in-use cases show actionable text. Stop and navigation release every media track; retry never creates duplicate streams.
+
+### GB 102 Pose overlay
+
+As a user, I can see detected joints and a skeleton so I know whether my body is being tracked.
+
+Acceptance criteria Overlay and video share the same crop, aspect ratio, and mirror transform. Anatomical left and right remain correct, and unavailable landmarks are not drawn as reliable observations.
+
+### GB 103 Tracking status
+
+As a user, I receive positioning guidance when tracking is incomplete.
+
+Acceptance criteria Required landmarks determine active, partial, and lost states. Leaving and returning to view clears stale observations and restores tracking without reloading the page.
+
+### GB 104 Responsive processing
+
+As a developer, I can measure pose processing without freezing the interface.
+
+Acceptance criteria Capture FPS and inference latency separately. Run detection outside the UI thread where supported, bound pending work, and dispose of worker and model resources on teardown.
+
+### Implementation and sprint review
+
+### Technical plan
+
+**Module boundaries** CameraManager owns device selection and stream cleanup. PoseEngine produces timestamped observations. PoseCanvas draws them. A developer panel shows timing and landmark visibility; user-facing status uses plain positioning instructions.
+
+**Capture and rendering** Initialize MediaPipe once per active engine, use video mode, and process new video frames rather than repeatedly analyzing the same frame. Render at the display cadence while detection runs at a measured rate; discard obsolete queued input.
+
+**Quality semantics** Choose required joints for the upcoming curl view. Configure visibility thresholds and consecutive valid observation time. Display a quality state rather than treating a visibility value as a calibrated probability of correct pose.
+
+**Data and GCP boundary** Keep frames and pose results in temporary browser memory. This sprint creates no dataset uploads or workout writes. Host model assets through an approved asset route and record the pinned model and package versions.
+
+### Verification checklist
+
+- Exercise permission allow, denial, retry, no camera, and unplugging or stopping the device.
+
+- Check overlay alignment at multiple window sizes and with mirroring enabled and disabled.
+
+- Leave the frame, partly hide the selected arm, return, and confirm no stale skeleton remains.
+
+- Start and stop repeatedly; verify only one stream and inference loop remain active.
+
+- Run a five-minute session on the agreed reference device and record inference latency and capture rate.
+
+### Exit criteria
+
+Proposed target: at least 15 analyzed frames per second on the reference device with responsive controls, no growing queue, and clean recovery after tracking loss. Record actual results and adjust the target during planning if the device cannot sustain it.
+
+### Sprint review demonstration
+
+Allow the camera, show the skeleton, change the window size, leave and return, deny permission after restarting, then stop capture. Show timing evidence and confirm ordinary frames were not uploaded.
+
+### Risks and scope decisions
+
+Slow devices may require a lighter model or reduced input size. If worker support blocks delivery, document a measured fallback and keep the UI responsive. Multiple people and mobile browser certification remain outside this sprint.
+
+### Handoff and review record
+
+Provide the timestamped landmark contract, camera-view instructions, supported-device notes, and tracking-state behavior to Sprint 2.
+
+Review record: completed tickets, reviewer, evidence, results, defects, and carryover. Retrospective: one improvement, owner, and check date. Apply the master Definition of Done.
