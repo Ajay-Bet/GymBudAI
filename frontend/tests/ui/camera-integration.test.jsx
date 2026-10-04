@@ -38,6 +38,14 @@ function fullCurl(startMs = 1000, side = 'left') {
   return renderFrames({ startMs, side, noiseDeg: 0, spacingJitter: 0, dropFrameProb: 0, script: [{ ms: 500 }, ...curl()] });
 }
 describe('CameraView with real analyzer, lifecycle, tracker and voice', () => {
+  it('auto arm picks the arm nearest the camera from landmark visibility', async () => {
+    render(<CameraView />);
+    await start();
+    const landmarks = Array.from({ length: 33 }, (_, i) => ({ x: 0.5, y: 0.5, presence: 1,
+      visibility: [12, 14, 16].includes(i) ? 0.95 : [11, 13, 15].includes(i) ? 0.2 : 0.9 }));
+    act(() => { for (let i = 0; i < 12; i += 1) mocks.pose.onResult({ frame: makeFrame({ timestampMs: 1000 + i * 33, flexionDeg: 10 }), timestampMs: 1000 + i * 33, inferenceMs: 1, landmarks }); });
+    expect(screen.getByRole('option', { name: 'Auto (right arm detected)' })).toBeTruthy();
+  });
   it('plays a chosen video file through the same pipeline and pauses the set when the video ends', async () => {
     render(<CameraView />);
     expect(screen.getByRole('button', { name: 'Play Video' }).disabled).toBe(true);

@@ -35,6 +35,8 @@ Update this file in the same change whenever any of these happen to this compone
 
 - 2026-10-04: Calibration select (Continuous — no waiting, default / Hold still first), changeable while stopped; hold-mode auto-calibrate is skipped in continuous mode; button reads Reset calibration. Headless Chrome on Ajay's clips (right arm, continuous): normal-swinging-sideangle 4, idealform-sideangle 8, excessive-swinging-sideangle 3, idealform-45angle 9, normal-swinging-45angle 0 (fails side-on gate).
 
+- 2026-10-04: Track arm defaults to Auto (arm nearest the camera); detection runs at each start while frames keep flowing, then `switchArm` interrupts any attempt and reacquires. Ajay's counter stayed at 0 because Track arm defaulted to Left on right-arm clips. Headless Chrome with default settings: 4, 8, 3, 9 reps on the side/45° clips.
+
 ## Open carryover
 
 - JSX today; TypeScript is the target architecture, with no broad migration yet.

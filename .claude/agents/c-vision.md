@@ -25,6 +25,8 @@ Update this file in the same change whenever any of these happen to this compone
 
 - Sprint 1 built it (`s1-vision`). Sprint 2 added hysteresis and dropout grace to `tracking.js`.
 
+- 2026-10-04: `armSelect.js` `createNearArmDetector` picks the side-view arm nearest the camera from shoulder/elbow/wrist visibility (≥10 frames and 0.1 margin, else the higher after 45). Unvalidated defaults. Test: `arm-select.test.js`.
+
 ## Open carryover
 
 - Thresholds (0.5 / 0.3 / 250 ms) are unvalidated; tune on reviewed real footage.

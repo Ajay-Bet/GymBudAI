@@ -382,3 +382,7 @@ Ajay: "we cant rely on waiting for calibration... there has to be auto calibrati
 Headless Chrome 153 on this Mac, video-file source, right arm, continuous mode (counts compared with the supplied, not independently reviewed annotation rows): `normal-swinging-sideangle` 4 (4 rows), `idealform-sideangle` 8 (8 rows), `excessive-swinging-sideangle` 3 (3 bounded rows + 1 `N/A` end; the video ends mid-rep), `idealform-45angle` 9 (9 rows), `normal-swinging-45angle` 0 (fails the side-on gate). Under hold mode only the first clip counted. Checks: `npm test` 277 node + 16 UI, lint clean.
 
 Known limits: habitual partial lowering moves the rolling bottom, so incomplete ROM is not measured against a true relaxed arm in this mode; torso and arm references move with the user. Front-view clips still fail the side-on gate.
+
+### Auto arm — 2026-10-04
+
+Ajay reported the counter stayed at 0. Same dev server and code counted reps in headless Chrome with Track arm set to Right; the page default was Left, and his clips are right-arm. Track arm now defaults to Auto (arm nearest the camera by landmark visibility). Headless Chrome with default settings: `normal-swinging-sideangle` 4, `idealform-sideangle` 8, `excessive-swinging-sideangle` 3, `idealform-45angle` 9. `npm test` 279 node + 17 UI, lint clean, build ok.

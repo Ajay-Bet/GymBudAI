@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { cameraErrorMessage, createCameraManager } from '../vision/CameraManager.js';
+import { createNearArmDetector } from '../vision/armSelect.js';
 import { createPoseEngine } from '../vision/PoseEngine.js';
 import { createTrackingValidator } from '../vision/tracking.js';
 import { createBiomechanicsEngine, FEATURE_SCHEMA } from '../biomechanics/engine.js';
@@ -107,6 +108,17 @@ function nextSet(runtime) {
   runtime.publishNarration?.(null);
   publishSet(runtime);
 }
+// Auto arm switch at session start: ends any attempt (counted reps stay), then reacquires the new arm.
+function switchArm(runtime, arm) {
+  interruptSet(runtime, 'recalibration');
+  runtime.side = arm;
+  runtime.validator.setSide(arm);
+  runtime.biomechanics.setSide(arm);
+  clearMeasurements(runtime);
+  runtime.result = null;
+  clearPose(runtime.canvas);
+}
+
 function clearMeasurements(runtime) {
   interruptSet(runtime, 'tracking-loss');
   // The biomechanics engine owns tracking-gap recovery and baseline retention.
@@ -188,6 +200,9 @@ const CameraView = () => {
   const [muted, setMuted] = useState(false);
   const [mirror, setMirror] = useState(true);
   const [side, setSide] = useState('left');
+  // Auto (default): pick the arm nearest the camera from landmark visibility at the start of each session.
+  const [armMode, setArmMode] = useState('auto');
+  const [detectedArm, setDetectedArm] = useState(null);
   const [devices, setDevices] = useState([]);
   const [deviceId, setDeviceId] = useState('');
   // Optional local video file played through the same pipeline instead of the camera.
@@ -355,6 +370,8 @@ const CameraView = () => {
     const session = ++runtime.generation;
     const current = () => runtime.generation === session && runtime.running;
     setActiveSource(source);
+    runtime.armDetector = armMode === 'auto' ? createNearArmDetector() : null;
+    if (armMode === 'auto') setDetectedArm(null);
     setCamera('starting');
     setError('');
     setMuted(false);
@@ -395,6 +412,18 @@ const CameraView = () => {
         },
         onResult: (result) => {
           if (!current() || runtime.muted || document.hidden || performance.now() - result.timestampMs > 500) return;
+          // Frames keep flowing on the current arm while the nearest arm is detected (about 10 frames).
+          const arm = runtime.armDetector?.update(result.landmarks);
+          if (arm) {
+            runtime.armDetector = null;
+            setDetectedArm(arm);
+            if (arm !== runtime.side) {
+              switchArm(runtime, arm);
+              setSide(arm);
+              setTracking({ state: 'lost', message: `Reacquiring your anatomical ${arm} arm.` });
+              return;
+            }
+          }
           runtime.result = result;
           analyzed += 1;
           inferenceMs = result.inferenceMs;
@@ -557,6 +586,15 @@ const CameraView = () => {
   };
   const changeSide = (event) => {
     const value = event.target.value;
+    if (value === 'auto') {
+      setArmMode('auto');
+      // Detect again on the next start; a running session keeps its current arm.
+      if (!runtimeRef.current.running) setDetectedArm(null);
+      return;
+    }
+    setArmMode('manual');
+    runtimeRef.current.armDetector = null;
+    if (value === runtimeRef.current.side) return;
     const state = runtimeRef.current.set.getState();
     if (state.state !== 'finished' && (state.hasActivity || curl?.attempt)) setPendingSide(value);
     else applySide(value);
@@ -667,7 +705,7 @@ const CameraView = () => {
         <div className="lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-6 lg:items-start">
         <div>
         <div className="flex flex-wrap gap-4 items-center mb-4 text-sm">
-          <label>Track arm <select value={side} onChange={changeSide} className="ml-2 rounded bg-zinc-800 border border-zinc-500 p-2"><option value="left">Left (your left)</option><option value="right">Right (your right)</option></select></label>
+          <label>Track arm <select value={armMode === 'auto' ? 'auto' : side} onChange={changeSide} className="ml-2 rounded bg-zinc-800 border border-zinc-500 p-2"><option value="auto">{armMode === 'auto' && detectedArm ? `Auto (${detectedArm} arm detected)` : 'Auto (arm nearest the camera)'}</option><option value="left">Left (your left)</option><option value="right">Right (your right)</option></select></label>
           <label className="flex gap-2 items-center"><input type="checkbox" checked={mirror} onChange={(event) => setMirror(event.target.checked)} />Mirror preview</label>
           {devices.length > 1 && <label>Camera <select className="ml-2 rounded bg-zinc-800 border border-zinc-500 p-2 max-w-full" value={deviceId} onChange={(event) => setDeviceId(event.target.value)} disabled={busy}><option value="">Default camera</option>{devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Camera ${index + 1}`}</option>)}</select></label>}
         </div>
