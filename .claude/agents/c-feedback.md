@@ -32,8 +32,7 @@ Update this file in the same change whenever any of these happen to this compone
 
 ## Open carryover
 
-- Timing defaults and cue wording not checked against reviewed recordings; no false-cues-per-minute measurement yet.
-- Speech not tested in real browsers (Chrome, Safari, iOS).
+- Ajay reports (2026-10-04, Sprint 4 close) that reviewed recordings and real-browser speech checks passed; no measurements or browser versions were recorded in the repository. Adopted false-cue target: at most 1 per minute. Record measured values with `ml/coaching_eval.mjs` before enabling rules.
 
 ## Lessons learned
 

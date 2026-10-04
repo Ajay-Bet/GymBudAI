@@ -1,7 +1,7 @@
 # Sprint 04 — Real-time form coaching
 
-Status: original coaching and extension implemented, integrated and independently reviewed on automated evidence; recording, physical demo and live-audio acceptance remain pending (not complete)
-Last updated: 2026-10-03
+Status: **completed 2026-10-04** on Ajay's sign-off that the human checks passed (see "Sprint 4 close — 2026-10-04" at the end). Automated checks run by the lead; human checks reported by Ajay, not observed or measured in this repository.
+Last updated: 2026-10-04
 
 ## Scope and acceptance criteria
 
@@ -386,3 +386,21 @@ Known limits: habitual partial lowering moves the rolling bottom, so incomplete 
 ### Auto arm — 2026-10-04
 
 Ajay reported the counter stayed at 0. Same dev server and code counted reps in headless Chrome with Track arm set to Right; the page default was Left, and his clips are right-arm. Track arm now defaults to Auto (arm nearest the camera by landmark visibility). Headless Chrome with default settings: `normal-swinging-sideangle` 4, `idealform-sideangle` 8, `excessive-swinging-sideangle` 3, `idealform-45angle` 9. `npm test` 279 node + 17 UI, lint clean, build ok.
+
+## Sprint 4 close — 2026-10-04
+
+Ajay (product owner), 2026-10-04: "finish up sprint 4 and everythign you need to do. all human checks have passed i checked.. once done just push to a new branch called sprint-4-ajay and then merge that to main.."
+
+- **Accepted on Ajay's attestation.** He reports the human checks passed: reviewed recordings, live camera demo and audible speech. These were done by Ajay and are not observed, measured or stored in this repository. No reviewer name, recording list, per-recording cue delays or false-cues-per-minute value has been recorded. The adopted target is at most 1 false spoken correction per minute.
+- **Rules stay disabled.** All three form rules keep `enabled: false` and `evidence: []`. The repository rule allows `enabled: true` only with reviewed evidence recorded here, and none is recorded. To enable one: run `node ml/coaching_eval.mjs --labels ml/outputs/coaching-labels.json --false-cue-target-per-min 1` on the reviewed clips, then add the report summary and the reviewer to the rule's `evidence`. This is carryover for whoever enables coaching.
+- **Final automated checks (lead, this session, branch `sprint-4-ajay`):** see the commit `Sprint 4 completed`. Frontend `npm test` 279 node + 17 UI, `npm run lint` clean, `npm run build` ok, backend pytest 97 passed.
+- **Delivered this session:** `ml/coaching_eval.mjs` replay measurement tool (independently reviewed, 7 findings fixed); video-file source on the camera page; continuous per-frame calibration (default); automatic arm selection (default). Headless Chrome, video files, default settings: `normal-swinging-sideangle` 4, `idealform-sideangle` 8, `excessive-swinging-sideangle` 3, `idealform-45angle` 9 reps, matching the supplied annotation rows. Screenshot: `evidence-auto-arm-idealform-sideangle.png`.
+- **Handoff to Sprint 5:** cue configuration `feedback-1.1.0`; issue episode schema; set summary `set-summary-1.0.0` as the workout payload candidate; score `curl-score-1.0.0` (unavailable while no rule is enabled); unique rep, episode and set IDs. New this session: `calibration.mode` in the FeatureFrame snapshot, plus the auto-arm and video-file sources.
+- **Carryover:**
+  - Record the reviewed evidence and enable rules.
+  - Continuous calibration does not measure incomplete ROM against a true relaxed arm.
+  - Front and oblique views fail the side-on gate.
+  - Large swings above about 17° reset the hold-mode baseline (synthetic finding).
+  - Sprint 3's annotated counting target now rests on Ajay's attestation and the four clip counts above.
+- **Agents:** `s4-` agents retired in `.claude/AGENT-MAP.md`. Component files touched this sprint (`c-exercises`, `c-feedback`, `c-camera-ui`, `c-biomechanics`, `c-vision`, `c-backend`, `c-frontend-app`, `c-validation`, `c-ml`, `c-docs`) carry the Sprint 4 contracts, history and carryover.
+- **Retrospective:** one improvement is to record human acceptance checks in the sprint record when they happen (who, which clips, results), so evidence does not rest on a later summary. Owner: Sprint 5 lead. Check at the Sprint 5 start.
