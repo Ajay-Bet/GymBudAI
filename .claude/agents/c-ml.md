@@ -32,6 +32,8 @@ Update this file in the same change whenever any of these happen to this compone
 
 - 2026-10-04 (Sprint 4 close-out): `ml/coaching_eval.mjs` replays a pose cache through the live coaching pipeline (review mode, simulated speech) and scores cue delay and false cues per minute against `ml/coaching-labels.example.json`-style labels. Reuses `readPoseCache` from `measure.mjs`. Owner for Sprint 4 acceptance tooling; Sprint 4 lead wrote it.
 
+- 2026-10-04: `mediapipe-workflow` skill documents extraction's version/model-SHA lockstep with the browser assets; `cv-mediapipe` skill's `scripts/mp.py` is a general CLI, not a replacement for `ml/extract.py` (it uses nominal-fps timestamps).
+
 ## Open carryover
 
 - Participant IDs, confirmed arm, confirmed view, and a second review are absent.
