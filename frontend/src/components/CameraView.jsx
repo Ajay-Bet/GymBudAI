@@ -190,6 +190,9 @@ const CameraView = () => {
   const [side, setSide] = useState('left');
   const [devices, setDevices] = useState([]);
   const [deviceId, setDeviceId] = useState('');
+  // Optional local video file played through the same pipeline instead of the camera.
+  const [videoFile, setVideoFile] = useState(null);
+  const [activeSource, setActiveSource] = useState('camera');
   const [metrics, setMetrics] = useState(EMPTY_METRICS);
   const [features, setFeatures] = useState(null);
   const [calibration, setCalibration] = useState(null);
@@ -261,6 +264,13 @@ const CameraView = () => {
         setMetrics(EMPTY_METRICS);
         setError('The camera disconnected or access ended. Reconnect it and start again.');
       },
+      onFileEnded: () => {
+        pauseSession(runtime);
+        setCamera('off');
+        setModel('Stopped');
+        setMetrics(EMPTY_METRICS);
+        setTracking({ state: 'lost', message: 'Video finished. Press Finish set to see the summary, or play it again.' });
+      },
       onMuted: (value) => {
         setMuted(value);
         runtime.muted = value;
@@ -313,10 +323,24 @@ const CameraView = () => {
     setError('');
   };
 
-  const startCamera = async () => {
+  const startCamera = () => startSession('camera');
+  const startVideo = () => startSession('file');
+
+  const chooseVideo = (event) => {
+    const file = event.target.files?.[0] ?? null;
+    setVideoFile(file);
+    // A recorded video is not a selfie view; show it as filmed.
+    if (file) setMirror(false);
+  };
+
+  const startSession = async (source) => {
     const runtime = runtimeRef.current;
     if (runtime.running) return;
-    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+    if (source === 'file' && !videoFile) {
+      setError('Choose a video file first.');
+      return;
+    }
+    if (source === 'camera' && (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia)) {
       setCamera('error');
       setError('Camera access requires a supported browser on HTTPS or localhost.');
       return;
@@ -328,11 +352,12 @@ const CameraView = () => {
     runtime.muted = false;
     const session = ++runtime.generation;
     const current = () => runtime.generation === session && runtime.running;
+    setActiveSource(source);
     setCamera('starting');
     setError('');
     setMuted(false);
     setModel('Loading pose model…');
-    setTracking({ state: 'lost', message: 'Waiting for live camera frames.' });
+    setTracking({ state: 'lost', message: source === 'file' ? 'Waiting for video frames.' : 'Waiting for live camera frames.' });
     setMetrics(EMPTY_METRICS);
     let phase = 'model';
     let captures = 0;
@@ -419,11 +444,11 @@ const CameraView = () => {
       if (!current()) return;
       phase = 'camera';
       setModel('Ready');
-      const stream = await runtime.manager.start(deviceId);
+      const stream = source === 'file' ? await runtime.manager.startFile(videoFile) : await runtime.manager.start(deviceId);
       if (!current() || !stream) return;
       setCamera('on');
       // Labels become available only after permission. Enumeration is optional.
-      navigator.mediaDevices.enumerateDevices?.().then((all) => {
+      if (source === 'camera') navigator.mediaDevices.enumerateDevices?.().then((all) => {
         if (current()) setDevices(all.filter((item) => item.kind === 'videoinput'));
       }).catch(() => {});
       const video = runtime.video;
@@ -483,7 +508,8 @@ const CameraView = () => {
       setModel(phase === 'model' ? 'Pose unavailable' : 'Stopped');
       setTracking(INITIAL_TRACKING);
       setMetrics(EMPTY_METRICS);
-      setError(phase === 'camera' ? cameraErrorMessage(failure) : (failure.message || 'The pose model could not load. Check your connection and try again.'));
+      const videoMessage = failure?.name === 'AbortError' ? 'The browser paused the video. Keep this tab visible and press Play Video again.' : cameraErrorMessage(failure);
+      setError(phase === 'camera' ? (source === 'file' ? videoMessage : cameraErrorMessage(failure)) : (failure.message || 'The pose model could not load. Check your connection and try again.'));
     }
   };
 
@@ -640,19 +666,26 @@ const CameraView = () => {
           <button type="button" className="rounded bg-zinc-700 p-2" onClick={() => setPendingSide(null)}>Keep current arm</button>
         </div>}
         <div className="relative overflow-hidden rounded-xl bg-black" style={{ minHeight: busy ? undefined : '200px', transform: mirror ? 'scaleX(-1)' : undefined }}>
-          <video ref={videoRef} autoPlay playsInline muted className="block w-full h-auto" aria-label="Live camera preview" />
+          <video ref={videoRef} autoPlay playsInline muted controls={activeSource === 'file' && busy} className="block w-full h-auto" aria-label={activeSource === 'file' ? 'Video file preview' : 'Live camera preview'} />
           <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true" />
         </div>
         <div className="mt-4 space-y-1 text-sm" role="status" aria-live="polite">
-          <p><strong>Camera:</strong> {camera === 'starting' ? 'Starting — allow camera access when asked. Stop cancels startup.' : camera === 'on' ? (muted ? 'Interrupted' : 'On') : camera === 'error' ? 'Unavailable' : 'Off'}</p>
+          {activeSource === 'file' && busy
+            ? <p><strong>Video:</strong> {camera === 'starting' ? 'Starting…' : `Playing ${videoFile?.name ?? ''}`}</p>
+            : <p><strong>Camera:</strong> {camera === 'starting' ? 'Starting — allow camera access when asked. Stop cancels startup.' : camera === 'on' ? (muted ? 'Interrupted' : 'On') : camera === 'error' ? 'Unavailable' : 'Off'}</p>}
           <p><strong>Pose model:</strong> {model}</p>
           <p><strong>Tracking:</strong> {tracking.message}</p>
         </div>
         {error && <p role="alert" className="mt-3 rounded-lg border border-red-400 p-3 text-red-200">{error}</p>}
         <div className="flex gap-3 mt-4">
           <button type="button" onClick={startCamera} disabled={busy} className="px-6 py-3 bg-[#7ccc44] text-[#24201f] font-bold disabled:opacity-50 rounded-lg">Start Camera</button>
-          <button type="button" onClick={stopCamera} disabled={!busy} className="px-6 py-3 bg-red-700 text-white disabled:opacity-50 rounded-lg">Stop Camera</button>
+          <button type="button" onClick={stopCamera} disabled={!busy} className="px-6 py-3 bg-red-700 text-white disabled:opacity-50 rounded-lg">{activeSource === 'file' && busy ? 'Stop Video' : 'Stop Camera'}</button>
         </div>
+        <div className="flex flex-wrap gap-3 items-center mt-3 text-sm">
+          <label>Or analyze a video file <input type="file" accept="video/*" onChange={chooseVideo} disabled={busy} className="ml-2 max-w-full" aria-label="Video file" /></label>
+          <button type="button" onClick={startVideo} disabled={busy || !videoFile} className="px-4 py-2 bg-zinc-700 text-white disabled:opacity-50 rounded-lg">Play Video</button>
+        </div>
+        <p className="text-xs text-gray-400 mt-1">The video plays in this browser only; it is not uploaded. It runs through the same tracking, calibration and coaching as the camera, so it needs a side-on view and about a second of a relaxed, still arm before the first curl.</p>
         <p className="text-sm text-gray-300 mt-4">Supported curl view: stand side-on to the camera with your selected arm nearest it. Keep both shoulders, both hips, and the whole selected arm in frame, with good lighting. For calibration, relax your arm downward and hold still. Mirroring does not change your anatomical left and right.</p>
         </div>
         <div className="mt-5 lg:mt-0 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">

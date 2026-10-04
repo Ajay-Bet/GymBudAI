@@ -4,12 +4,16 @@ export function createCameraManager({
   getUserMedia = (constraints) => navigator.mediaDevices.getUserMedia(constraints),
   onEnded = () => {},
   onMuted = () => {},
+  onFileEnded = () => {},
+  createObjectURL = (file) => URL.createObjectURL(file),
+  revokeObjectURL = (url) => URL.revokeObjectURL(url),
 }) {
   let generation = 0;
   let stream = null;
   let pending = null;
   let starting = null;
   let removeListeners = () => {};
+  let fileUrl = null;
   const release = (value) => value?.getTracks().forEach((track) => track.stop());
 
   function stop() {
@@ -21,6 +25,34 @@ export function createCameraManager({
     stream = null;
     video.pause();
     video.srcObject = null;
+    if (fileUrl) {
+      video.removeAttribute('src');
+      video.load?.();
+      revokeObjectURL(fileUrl);
+      fileUrl = null;
+    }
+  }
+
+  // Play a local video file instead of the camera. The file stays in this browser (object URL only).
+  async function startFile(file) {
+    if (!file) throw new DOMException('Choose a video file first.', 'NotFoundError');
+    stop();
+    const session = generation;
+    fileUrl = createObjectURL(file);
+    video.srcObject = null;
+    video.src = fileUrl;
+    video.loop = false;
+    const ended = () => { if (session === generation) onFileEnded(); };
+    video.addEventListener('ended', ended);
+    removeListeners = () => video.removeEventListener('ended', ended);
+    try {
+      await video.play();
+    } catch (error) {
+      if (session !== generation) return null;
+      stop();
+      throw error;
+    }
+    return session === generation ? file : null;
   }
 
   function start(deviceId = '') {
@@ -87,7 +119,7 @@ export function createCameraManager({
     }).catch(() => {});
     return operation;
   }
-  return { start, stop };
+  return { start, startFile, stop };
 }
 
 export function cameraErrorMessage(error) {
@@ -98,6 +130,7 @@ export function cameraErrorMessage(error) {
     OverconstrainedError: 'This camera is unavailable or does not support the requested settings. Choose another camera.',
     SecurityError: 'Camera access is blocked. Open GymBud using HTTPS or localhost and check browser permissions.',
     AbortError: 'Camera startup was interrupted. Please try again.',
+    NotSupportedError: 'This browser cannot play that video file. Try an MP4 (H.264) or WebM file.',
   };
   return messages[error?.name] || 'Could not start the camera. Check camera access and try again.';
 }

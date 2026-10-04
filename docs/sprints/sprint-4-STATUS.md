@@ -369,7 +369,8 @@ Ajay asked for Sprint 4 to be completed and confirmed done. The attached require
 
 ### Decision needed and next actions
 
-- Ajay chooses the false-cue target before review (proposal: at most 1 false spoken correction per minute of accepted-form curling).
+- **Decision (Ajay, 2026-10-04): false-cue target adopted, at most 1 false spoken correction per minute of accepted-form curling**, chosen before review. Use `--false-cue-target-per-min 1`.
+- Video-file source added at Ajay's request (2026-10-04): the camera page can play a local video (for example from `video.assets/`) through the same pipeline instead of the live camera. Calibration still runs on each video, because it is a per-session baseline of that person's relaxed arm, not something the ML pilot learned. Clips without a relaxed still arm before the first curl will not calibrate. Checked by unit and UI tests; the in-app browser pane was hidden, so playback was not seen end to end.
 - Ajay records at least three side-on clips with a 1 s relaxed hold, labels windows; a second person reviews them; run the tool.
 - Live demo and Chrome/Safari (iOS if possible) audio by ear, using the checklist in `docs/coaching-sprint-04.md`.
 - Sprint 4 is not marked complete. No rule is enabled. `s4-` agents stay Active. Not pushed.

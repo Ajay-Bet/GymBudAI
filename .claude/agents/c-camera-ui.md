@@ -31,6 +31,8 @@ Update this file in the same change whenever any of these happen to this compone
 
 - Sprint 1 built the camera shell (`s1-camera-ui`). Sprint 2 added calibration, measurements and the developer stability readout (`s2-calibration-ui`). Sprint 3 wired the curl analyzer, added CurlPanel, fixed set-wiping on stop, and added auto-calibration (`s3-workout-ui`). Sprint 4 wired the issue tracker, scheduler and speech and added CoachingPanel and SetSummaryPanel (`s4-coaching-ui`); headless Chrome check with a fake camera only.
 
+- 2026-10-04 (Sprint 4 close-out, Ajay's request): video-file source. `CameraManager.startFile(file)` plays a local object URL (revoked on stop, `onFileEnded` callback); CameraView adds a Video file picker and Play Video that run the same pose/tracking/calibration/coaching pipeline. Video end pauses the set like Stop. Mirror defaults off for files. A hidden or background tab blocks playback (`AbortError`, power saving), so it shows a keep-visible message.
+
 ## Open carryover
 
 - JSX today; TypeScript is the target architecture, with no broad migration yet.

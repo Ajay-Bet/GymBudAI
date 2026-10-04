@@ -151,3 +151,25 @@ test('a stream already disconnected before attachment is released and startup fa
   assert.equal(preview.srcObject, null);
   assert.deepEqual(stream.getTracks().map(track => track.stops), [1, 1]);
 });
+
+test('startFile plays a local object URL, reports the end, and Stop revokes it', async () => {
+  const listeners = {};
+  const preview = { srcObject: 'old', src: '', play: async () => {}, pause: () => {}, load: () => {},
+    removeAttribute(name) { if (name === 'src') this.src = ''; },
+    addEventListener: (type, fn) => { listeners[type] = fn; }, removeEventListener: (type) => { delete listeners[type]; } };
+  const revoked = [];
+  let ended = 0;
+  const manager = createCameraManager({ video: preview, getUserMedia: () => { throw new Error('camera must not be used'); },
+    onFileEnded: () => { ended += 1; }, createObjectURL: () => 'blob:clip', revokeObjectURL: (url) => revoked.push(url) });
+  const file = { name: 'clip.mp4' };
+  assert.equal(await manager.startFile(file), file);
+  assert.equal(preview.src, 'blob:clip');
+  assert.equal(preview.srcObject, null);
+  listeners.ended();
+  assert.equal(ended, 1);
+  manager.stop();
+  assert.deepEqual(revoked, ['blob:clip']);
+  assert.equal(preview.src, '');
+  assert.equal(listeners.ended, undefined);
+  await assert.rejects(manager.startFile(null), /Choose a video file/);
+});
