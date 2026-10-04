@@ -33,6 +33,8 @@ Update this file in the same change whenever any of these happen to this compone
 
 - 2026-10-04 (Sprint 4 close-out, Ajay's request): video-file source. `CameraManager.startFile(file)` plays a local object URL (revoked on stop, `onFileEnded` callback); CameraView adds a Video file picker and Play Video that run the same pose/tracking/calibration/coaching pipeline. Video end pauses the set like Stop. Mirror defaults off for files. A hidden or background tab blocks playback (`AbortError`, power saving), so it shows a keep-visible message.
 
+- 2026-10-04: Calibration select (Continuous — no waiting, default / Hold still first), changeable while stopped; hold-mode auto-calibrate is skipped in continuous mode; button reads Reset calibration. Headless Chrome on Ajay's clips (right arm, continuous): normal-swinging-sideangle 4, idealform-sideangle 8, excessive-swinging-sideangle 3, idealform-45angle 9, normal-swinging-45angle 0 (fails side-on gate).
+
 ## Open carryover
 
 - JSX today; TypeScript is the target architecture, with no broad migration yet.

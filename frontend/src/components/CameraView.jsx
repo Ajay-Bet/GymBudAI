@@ -129,7 +129,7 @@ function startCalibration(runtime) {
 const AUTO_CALIBRATE_MAX_FLEXION_DEG = 40;
 const AUTO_CALIBRATE_MIN_INTERVAL_MS = 1000;
 function shouldAutoCalibrate(runtime, frame) {
-  return runtime.autoCalibrate && frame.calibration.status === 'uncalibrated' && frame.trackingState === 'active'
+  return runtime.calibrationMode !== 'continuous' && runtime.autoCalibrate && frame.calibration.status === 'uncalibrated' && frame.trackingState === 'active'
     && frame.orientation.valid && Number.isFinite(frame.raw?.elbowFlexionDeg) && frame.raw.elbowFlexionDeg <= AUTO_CALIBRATE_MAX_FLEXION_DEG
     && (runtime.lastAutoCalibrateMs == null || frame.timestampMs - runtime.lastAutoCalibrateMs >= AUTO_CALIBRATE_MIN_INTERVAL_MS);
 }
@@ -180,7 +180,7 @@ function pauseSession(runtime) {
 const CameraView = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const runtimeRef = useRef({ generation: 0, running: false, videoFrame: null, animation: null, autoCalibrate: true, lastAutoCalibrateMs: null });
+  const runtimeRef = useRef({ generation: 0, running: false, videoFrame: null, animation: null, autoCalibrate: true, lastAutoCalibrateMs: null, calibrationMode: 'continuous' });
   const [camera, setCamera] = useState('off');
   const [model, setModel] = useState('Not loaded');
   const [tracking, setTracking] = useState(INITIAL_TRACKING);
@@ -198,6 +198,8 @@ const CameraView = () => {
   const [calibration, setCalibration] = useState(null);
   const [stability, setStability] = useState(null);
   const [autoCalibrate, setAutoCalibrate] = useState(true);
+  // Continuous (default): no hold-still wait; the baseline updates on every frame. Hold: Sprint 2 hold-still calibration.
+  const [calibrationMode, setCalibrationMode] = useState('continuous');
   const [curl, setCurl] = useState(null);
   const [curlSession, setCurlSession] = useState(null);
   // Speech adapter is created once; it has no side effects until prime()/speak().
@@ -223,7 +225,7 @@ const CameraView = () => {
     runtime.canvas = canvasRef.current;
     runtime.side = 'left';
     runtime.validator = createTrackingValidator({ side: 'left' });
-    runtime.biomechanics = createBiomechanicsEngine({ side: 'left', view: 'side' });
+    runtime.biomechanics = createBiomechanicsEngine({ side: 'left', view: 'side', calibrationMode: runtime.calibrationMode });
     runtime.stability = createStabilityTracker({ windowMs: 2000, key: 'elbowFlexionDeg' });
     runtime.publishFeatures = setFeatures;
     runtime.publishStability = setStability;
@@ -564,6 +566,15 @@ const CameraView = () => {
     // Recalibration keeps the set but ends any in-progress attempt.
     startCalibration(runtimeRef.current);
   };
+  const changeCalibrationMode = (event) => {
+    const runtime = runtimeRef.current;
+    const mode = event.target.value;
+    if (runtime.running || mode === runtime.calibrationMode) return;
+    runtime.calibrationMode = mode;
+    runtime.biomechanics = createBiomechanicsEngine({ side: runtime.side, view: 'side', calibrationMode: mode });
+    setCalibrationMode(mode);
+    setCalibration(runtime.biomechanics.getCalibration());
+  };
   const changeAutoCalibrate = (event) => {
     setAutoCalibrate(event.target.checked);
     runtimeRef.current.autoCalibrate = event.target.checked;
@@ -693,9 +704,10 @@ const CameraView = () => {
           <h3 className="font-bold text-[#7ccc44]">Curl measurements · {side} arm · side-on view</h3>
           <p className="mt-2" role="status" aria-live="polite"><strong>Readiness:</strong> {features?.ready ? 'Ready — calibrated measurements available.' : awaitingAuto ? "Get into position side-on with your arm relaxed; calibration starts automatically." : calibration?.message || 'Start the camera, then calibrate your comfortable starting posture.'}</p>
           {awaitingAuto && calibration?.message && <p className="text-gray-300">{calibration.message}</p>}
-          <CalibrationProgress calibration={calibration} side={side} cameraOn={camera === 'on'} autoCalibrate={autoCalibrate} />
-          <button type="button" onClick={calibrate} disabled={camera !== 'on' || muted} className="mt-3 px-4 py-2 rounded-lg bg-zinc-700 disabled:opacity-50">{calibration?.status === 'ready' ? 'Recalibrate' : 'Calibrate starting posture'}</button>
-          <label className="mt-3 ml-3 inline-flex gap-2 items-center"><input type="checkbox" checked={autoCalibrate} onChange={changeAutoCalibrate} />Auto-calibrate when I'm in position</label>
+          <CalibrationProgress calibration={calibration} side={side} cameraOn={camera === 'on'} autoCalibrate={autoCalibrate || calibrationMode === 'continuous'} />
+          <button type="button" onClick={calibrate} disabled={camera !== 'on' || muted} className="mt-3 px-4 py-2 rounded-lg bg-zinc-700 disabled:opacity-50">{calibrationMode === 'continuous' ? 'Reset calibration' : calibration?.status === 'ready' ? 'Recalibrate' : 'Calibrate starting posture'}</button>
+          {calibrationMode === 'hold' && <label className="mt-3 ml-3 inline-flex gap-2 items-center"><input type="checkbox" checked={autoCalibrate} onChange={changeAutoCalibrate} />Auto-calibrate when I'm in position</label>}
+          <label className="mt-3 block">Calibration <select value={calibrationMode} onChange={changeCalibrationMode} disabled={busy} className="ml-2 rounded bg-zinc-800 border border-zinc-500 p-2"><option value="continuous">Continuous — no waiting (default)</option><option value="hold">Hold still first</option></select></label>
           <p className="mt-2 text-gray-300">Calibration clears the previous baseline. Hold still until ready; hiding a required joint makes measurements unavailable.</p>
           <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2">
             <div><dt>Elbow flexion</dt><dd>{measurement(features, 'elbowFlexionDeg')}</dd></div>

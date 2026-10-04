@@ -374,3 +374,11 @@ Ajay asked for Sprint 4 to be completed and confirmed done. The attached require
 - Ajay records at least three side-on clips with a 1 s relaxed hold, labels windows; a second person reviews them; run the tool.
 - Live demo and Chrome/Safari (iOS if possible) audio by ear, using the checklist in `docs/coaching-sprint-04.md`.
 - Sprint 4 is not marked complete. No rule is enabled. `s4-` agents stay Active. Not pushed.
+
+### Continuous calibration — 2026-10-04 (Ajay's decision)
+
+Ajay: "we cant rely on waiting for calibration... there has to be auto calibration setup for every frame everytime." Implemented `calibrationMode: 'continuous'` (default on the camera page; Hold still first stays selectable). Every valid side-on frame updates a rolling 6 s baseline from the lowest relaxed-eligible arm position, so counting starts on the first curl after the arm has been lowered once. All values are unvalidated defaults; form rules stay disabled.
+
+Headless Chrome 153 on this Mac, video-file source, right arm, continuous mode (counts compared with the supplied, not independently reviewed annotation rows): `normal-swinging-sideangle` 4 (4 rows), `idealform-sideangle` 8 (8 rows), `excessive-swinging-sideangle` 3 (3 bounded rows + 1 `N/A` end; the video ends mid-rep), `idealform-45angle` 9 (9 rows), `normal-swinging-45angle` 0 (fails the side-on gate). Under hold mode only the first clip counted. Checks: `npm test` 277 node + 16 UI, lint clean.
+
+Known limits: habitual partial lowering moves the rolling bottom, so incomplete ROM is not measured against a true relaxed arm in this mode; torso and arm references move with the user. Front-view clips still fail the side-on gate.

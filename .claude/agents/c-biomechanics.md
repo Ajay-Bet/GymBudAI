@@ -27,6 +27,8 @@ Update this file in the same change whenever any of these happen to this compone
 
 - Sprint 2 built it (`s2-biomechanics`). Sprint 3 added `baselineElbowFlexionDeg` and bumped the schema to 1.1.0 (`s3-exercises`).
 
+- 2026-10-04 (Ajay's decision, Sprint 4 close-out): `calibrationMode: 'continuous'` in `createBiomechanicsEngine` (engine default stays `'hold'`). Every valid frame updates a rolling 6 s baseline: elbow bottom = 10th percentile of flexion ≤ 45°, torso/arm/elbow references = means within 10° of that bottom; ready on the first relaxed-eligible frame; a reposition clears the window instead of blocking. Snapshot gains additive `mode`. FEATURE_SCHEMA stays 1.2.0. Tests: `calibration-continuous.test.js`. Known limit: habitual partial lowering moves the bottom, so incomplete ROM relative to a true relaxed arm is not measured in this mode.
+
 ## Open carryover
 
 - Per-frame `elbowAngularVelocityDegS` still varies with frame spacing; the curl analyzer uses its own windowed slope instead, so no analyzer depends on it.
