@@ -30,6 +30,8 @@ Update this file in the same change whenever any of these happen to this compone
 
 - 2026-10-04: Local curl pilot added extraction caches, annotation audit, measurement replay, and an experimental `curl-pilot-1` logistic artifact. The three-way grouped split is blocked. The fixed-threshold recording split produced an experimental swinging head with weak held-out metrics. Production rules stay disabled.
 
+- 2026-10-04 (Sprint 4 close-out): `ml/coaching_eval.mjs` replays a pose cache through the live coaching pipeline (review mode, simulated speech) and scores cue delay and false cues per minute against `ml/coaching-labels.example.json`-style labels. Reuses `readPoseCache` from `measure.mjs`. Owner for Sprint 4 acceptance tooling; Sprint 4 lead wrote it.
+
 ## Open carryover
 
 - Participant IDs, confirmed arm, confirmed view, and a second review are absent.

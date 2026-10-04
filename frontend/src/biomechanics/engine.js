@@ -14,7 +14,20 @@ import { angleDegrees, distance, signedTiltDegrees, toAspectPoint } from './geom
 export const DEFAULT_CONFIG = Object.freeze({ confidence: 0.5, releaseConfidence: 0.3, dropoutGraceMs: 250,
   smoothingMs: 100, maxGapMs: 500,
   calibrationMs: 1000, calibrationMinFrames: 8, maxCalibrationFlexionDeg: 45, maxOrientationRatio: 0.45,
-  stableAngleRangeDeg: 8, stablePositionRange: 0.06, repositionRatio: 0.3 });
+  stableAngleRangeDeg: 8, stablePositionRange: 0.06, repositionRatio: 0.3,
+  continuousWindowMs: 6000, continuousBottomPercentile: 0.1, continuousBottomBandDeg: 10 });
+/**
+ * Calibration modes. 'hold' (Sprint 2): collect calibrationMs of a still, relaxed arm before any
+ * measurement. 'continuous' (Ajay, 2026-10-04): no waiting; every valid frame updates a rolling
+ * baseline from the last continuousWindowMs of tracked, side-on frames. The elbow baseline is the
+ * continuousBottomPercentile of relaxed-eligible flexion (<= maxCalibrationFlexionDeg); torso,
+ * upper-arm and elbow-position references are means over frames within continuousBottomBandDeg of
+ * that bottom. Ready as soon as one relaxed-eligible frame is in the window. A shoulder jump over
+ * repositionRatio clears the window instead of asking for recalibration. Unvalidated defaults.
+ * Known limits: the bottom follows the user's lowest recent position, so habitual partial lowering
+ * shifts it, and torso/arm references move with the user.
+ */
+export const CALIBRATION_MODES = Object.freeze(['hold', 'continuous']);
 /**
  * Feature contract shared with UI and validation. Displacement and velocity of the elbow
  * relative to the shoulder are divided by the current smoothed shoulder-hip (torso) segment length of
@@ -38,6 +51,7 @@ export const FEATURE_SCHEMA = Object.freeze({
  *   actual contiguous retained observation window (1000 ms and at least 8 frames by default).
  * @property {string|null} blockedReason Specific positioning or stability blocker.
  * @property {string} message User-facing guidance.
+ * @property {'hold'|'continuous'} mode Calibration mode (additive, 2026-10-04).
  * @property {number|null} baselineElbowFlexionDeg Mean raw (unsmoothed) elbow flexion in degrees over
  *   the accepted calibration samples (relaxed arm). A number only while status is 'ready'; otherwise
  *   null. Added in feature schema 1.1.0 for analyzer thresholds relative to the calibrated bottom.
@@ -77,26 +91,30 @@ function geometry(points) {
   return { elbowInteriorDeg: interior, elbowFlexionDeg: interior === null ? null : 180 - interior,
     torsoTiltDeg: signedTiltDegrees(shoulder, hip), upperArmTiltDeg: signedTiltDegrees(shoulder, elbow) };
 }
-export function createBiomechanicsEngine({ side = 'left', view = 'side', config = {} } = {}) {
+export function createBiomechanicsEngine({ side = 'left', view = 'side', config = {}, calibrationMode = 'hold' } = {}) {
   const settings = { ...DEFAULT_CONFIG, ...config };
   if (!['left', 'right'].includes(side)) throw new Error('Choose left or right anatomical side.');
+  if (!CALIBRATION_MODES.includes(calibrationMode)) throw new Error(`Invalid calibration mode: ${calibrationMode}`);
+  const continuous = calibrationMode === 'continuous';
   for (const [key, value] of Object.entries(settings)) {
     if (!Number.isFinite(value) || value <= 0) throw new Error(`Invalid biomechanics config: ${key}`);
   }
   let lastTimestamp = null, dimensions = null, filtered = null, previous = null, baseline = null, samples = [];
-  let dropoutSince = null;
+  let dropoutSince = null, history = [];
   const releaseConfidence = Math.min(settings.releaseConfidence, settings.confidence);
-  let calibration = { status: 'uncalibrated', progress: 0, message: 'Choose your side, stand sideways and calibrate with your arm relaxed.' };
-  const snapshot = () => ({ blockedReason: null, ...calibration,
+  const WAITING_CONTINUOUS = 'Stand side-on with your selected arm in view; calibration updates automatically.';
+  let calibration = { status: 'uncalibrated', progress: 0, message: continuous ? WAITING_CONTINUOUS : 'Choose your side, stand sideways and calibrate with your arm relaxed.' };
+  const snapshot = () => ({ blockedReason: null, ...calibration, mode: calibrationMode,
     baselineElbowFlexionDeg: calibration.status === 'ready' && baseline ? baseline.elbowFlexion : null });
   function reset(reason = 'Calibration cleared. Hold still and calibrate again.') {
     lastTimestamp = null; dimensions = null; filtered = null; previous = null; baseline = null; samples = [];
-    dropoutSince = null;
-    calibration = { status: 'uncalibrated', progress: 0, message: reason };
+    dropoutSince = null; history = [];
+    calibration = { status: 'uncalibrated', progress: 0, message: continuous ? WAITING_CONTINUOUS : reason };
     return snapshot();
   }
   function invalidate(reason, blockedReason = null) {
-    filtered = null; previous = null; baseline = null; samples = []; dropoutSince = null;
+    filtered = null; previous = null; baseline = null; samples = []; dropoutSince = null; history = [];
+    if (continuous) { calibration = { status: 'uncalibrated', progress: 0, message: reason, blockedReason }; return; }
     if (calibration.status === 'collecting') calibration = { status: 'collecting', progress: 0, message: reason, blockedReason };
     else calibration = { status: 'uncalibrated', progress: 0, message: reason, blockedReason };
   }
@@ -178,7 +196,11 @@ export function createBiomechanicsEngine({ side = 'left', view = 'side', config 
       invalidate('Use a side-on view with your selected shoulder and hip visible; far-side joints may be hidden. This is an approximate orientation check.', 'not-side-on');
       return finish('unsupported-or-unreliable-view');
     }
-    if (baseline && (distance(points[0], baseline.shoulder) / baseline.torso > settings.repositionRatio
+    if (continuous) {
+      const latest = history.at(-1);
+      if (latest && (distance(points[0], latest.shoulder) / latest.torso > settings.repositionRatio
+        || Math.abs(torso / latest.torso - 1) > settings.repositionRatio)) history = [];
+    } else if (baseline && (distance(points[0], baseline.shoulder) / baseline.torso > settings.repositionRatio
       || Math.abs(torso / baseline.torso - 1) > settings.repositionRatio)) {
       invalidate('Position or camera scale changed. Calibrate again.');
     }
@@ -240,6 +262,25 @@ export function createBiomechanicsEngine({ side = 'left', view = 'side', config 
         calibration = { status: 'ready', progress: 1, message: 'Calibration ready for local feature measurements.' };
       }
     }
+    if (continuous) {
+      history.push({ timestamp, geometry: frame.raw, relative: rawRelative, shoulder: points[0], torso });
+      while (history.length && timestamp - history[0].timestamp > settings.continuousWindowMs) history.shift();
+      const eligible = history.filter((s) => s.geometry.elbowFlexionDeg <= settings.maxCalibrationFlexionDeg);
+      if (!eligible.length) {
+        baseline = null;
+        calibration = { status: 'uncalibrated', progress: 0, blockedReason: 'arm-not-relaxed',
+          message: 'Lower your selected arm fully once; counting starts from your lowest position.' };
+      } else {
+        const sorted = eligible.map((s) => s.geometry.elbowFlexionDeg).sort((a, b) => a - b);
+        const bottom = sorted[Math.min(sorted.length - 1, Math.floor(settings.continuousBottomPercentile * sorted.length))];
+        const near = eligible.filter((s) => s.geometry.elbowFlexionDeg <= bottom + settings.continuousBottomBandDeg);
+        const mean = (fn) => near.reduce((sum, s) => sum + fn(s), 0) / near.length;
+        baseline = { torso: mean((s) => s.torso), shoulder: { x: mean((s) => s.shoulder.x), y: mean((s) => s.shoulder.y) },
+          relative: { x: mean((s) => s.relative.x), y: mean((s) => s.relative.y) },
+          upperArm: mean((s) => s.geometry.upperArmTiltDeg), torsoTilt: mean((s) => s.geometry.torsoTiltDeg), elbowFlexion: bottom };
+        calibration = { status: 'ready', progress: 1, message: 'Calibrating continuously from your lowest arm position.' };
+      }
+    }
     if (baseline) {
       if (relative) frame.values.elbowDisplacement = distance(relative, baseline.relative);
       frame.values.upperArmDriftDeg = angularDifference(frame.smoothed.upperArmTiltDeg, baseline.upperArm);
@@ -248,7 +289,8 @@ export function createBiomechanicsEngine({ side = 'left', view = 'side', config 
     return finish();
   }
   return { update, reset, getCalibration: snapshot,
-    calibrate() { reset(); calibration = { status: 'collecting', progress: 0, message: 'Hold still with your arm relaxed at your side.' }; return snapshot(); },
+    calibrationMode,
+    calibrate() { reset(); if (continuous) return snapshot(); calibration = { status: 'collecting', progress: 0, message: 'Hold still with your arm relaxed at your side.' }; return snapshot(); },
     setSide(next) { if (!['left', 'right'].includes(next)) throw new Error('Choose left or right anatomical side.'); side = next; return reset('Side changed. Calibrate the selected arm.'); },
     setView(next) { view = next; return reset('View changed. Side-on view and calibration are required.'); } };
 }

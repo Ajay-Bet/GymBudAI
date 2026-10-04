@@ -30,7 +30,7 @@ const CalibrationProgress = ({ calibration, side, cameraOn, autoCalibrate }) => 
   const blocked = blockedReasonText(calibration?.blockedReason, side);
   let headline;
   if (!cameraOn) headline = status === 'ready' ? 'Calibrated' : 'Calibration starts when the camera is on.';
-  else if (status === 'ready') headline = 'Calibrated — you can start curling.';
+  else if (status === 'ready') headline = calibration?.mode === 'continuous' ? 'Calibrated continuously — curl any time.' : 'Calibrated — you can start curling.';
   else if (status === 'collecting') headline = 'Calibrating — hold still with your arm relaxed.';
   else headline = autoCalibrate ? 'Get side-on with your arm relaxed; calibration starts automatically.' : 'Press Calibrate when you are in position.';
   const instruction = cameraOn && status !== 'ready' ? (blocked ?? calibration?.message ?? null) : null;

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { cameraErrorMessage, createCameraManager } from '../vision/CameraManager.js';
+import { createNearArmDetector } from '../vision/armSelect.js';
 import { createPoseEngine } from '../vision/PoseEngine.js';
 import { createTrackingValidator } from '../vision/tracking.js';
 import { createBiomechanicsEngine, FEATURE_SCHEMA } from '../biomechanics/engine.js';
@@ -107,6 +108,17 @@ function nextSet(runtime) {
   runtime.publishNarration?.(null);
   publishSet(runtime);
 }
+// Auto arm switch at session start: ends any attempt (counted reps stay), then reacquires the new arm.
+function switchArm(runtime, arm) {
+  interruptSet(runtime, 'recalibration');
+  runtime.side = arm;
+  runtime.validator.setSide(arm);
+  runtime.biomechanics.setSide(arm);
+  clearMeasurements(runtime);
+  runtime.result = null;
+  clearPose(runtime.canvas);
+}
+
 function clearMeasurements(runtime) {
   interruptSet(runtime, 'tracking-loss');
   // The biomechanics engine owns tracking-gap recovery and baseline retention.
@@ -129,7 +141,7 @@ function startCalibration(runtime) {
 const AUTO_CALIBRATE_MAX_FLEXION_DEG = 40;
 const AUTO_CALIBRATE_MIN_INTERVAL_MS = 1000;
 function shouldAutoCalibrate(runtime, frame) {
-  return runtime.autoCalibrate && frame.calibration.status === 'uncalibrated' && frame.trackingState === 'active'
+  return runtime.calibrationMode !== 'continuous' && runtime.autoCalibrate && frame.calibration.status === 'uncalibrated' && frame.trackingState === 'active'
     && frame.orientation.valid && Number.isFinite(frame.raw?.elbowFlexionDeg) && frame.raw.elbowFlexionDeg <= AUTO_CALIBRATE_MAX_FLEXION_DEG
     && (runtime.lastAutoCalibrateMs == null || frame.timestampMs - runtime.lastAutoCalibrateMs >= AUTO_CALIBRATE_MIN_INTERVAL_MS);
 }
@@ -180,7 +192,7 @@ function pauseSession(runtime) {
 const CameraView = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const runtimeRef = useRef({ generation: 0, running: false, videoFrame: null, animation: null, autoCalibrate: true, lastAutoCalibrateMs: null });
+  const runtimeRef = useRef({ generation: 0, running: false, videoFrame: null, animation: null, autoCalibrate: true, lastAutoCalibrateMs: null, calibrationMode: 'continuous' });
   const [camera, setCamera] = useState('off');
   const [model, setModel] = useState('Not loaded');
   const [tracking, setTracking] = useState(INITIAL_TRACKING);
@@ -188,13 +200,21 @@ const CameraView = () => {
   const [muted, setMuted] = useState(false);
   const [mirror, setMirror] = useState(true);
   const [side, setSide] = useState('left');
+  // Auto (default): pick the arm nearest the camera from landmark visibility at the start of each session.
+  const [armMode, setArmMode] = useState('auto');
+  const [detectedArm, setDetectedArm] = useState(null);
   const [devices, setDevices] = useState([]);
   const [deviceId, setDeviceId] = useState('');
+  // Optional local video file played through the same pipeline instead of the camera.
+  const [videoFile, setVideoFile] = useState(null);
+  const [activeSource, setActiveSource] = useState('camera');
   const [metrics, setMetrics] = useState(EMPTY_METRICS);
   const [features, setFeatures] = useState(null);
   const [calibration, setCalibration] = useState(null);
   const [stability, setStability] = useState(null);
   const [autoCalibrate, setAutoCalibrate] = useState(true);
+  // Continuous (default): no hold-still wait; the baseline updates on every frame. Hold: Sprint 2 hold-still calibration.
+  const [calibrationMode, setCalibrationMode] = useState('continuous');
   const [curl, setCurl] = useState(null);
   const [curlSession, setCurlSession] = useState(null);
   // Speech adapter is created once; it has no side effects until prime()/speak().
@@ -220,7 +240,7 @@ const CameraView = () => {
     runtime.canvas = canvasRef.current;
     runtime.side = 'left';
     runtime.validator = createTrackingValidator({ side: 'left' });
-    runtime.biomechanics = createBiomechanicsEngine({ side: 'left', view: 'side' });
+    runtime.biomechanics = createBiomechanicsEngine({ side: 'left', view: 'side', calibrationMode: runtime.calibrationMode });
     runtime.stability = createStabilityTracker({ windowMs: 2000, key: 'elbowFlexionDeg' });
     runtime.publishFeatures = setFeatures;
     runtime.publishStability = setStability;
@@ -260,6 +280,13 @@ const CameraView = () => {
         setTracking(INITIAL_TRACKING);
         setMetrics(EMPTY_METRICS);
         setError('The camera disconnected or access ended. Reconnect it and start again.');
+      },
+      onFileEnded: () => {
+        pauseSession(runtime);
+        setCamera('off');
+        setModel('Stopped');
+        setMetrics(EMPTY_METRICS);
+        setTracking({ state: 'lost', message: 'Video finished. Press Finish set to see the summary, or play it again.' });
       },
       onMuted: (value) => {
         setMuted(value);
@@ -313,10 +340,24 @@ const CameraView = () => {
     setError('');
   };
 
-  const startCamera = async () => {
+  const startCamera = () => startSession('camera');
+  const startVideo = () => startSession('file');
+
+  const chooseVideo = (event) => {
+    const file = event.target.files?.[0] ?? null;
+    setVideoFile(file);
+    // A recorded video is not a selfie view; show it as filmed.
+    if (file) setMirror(false);
+  };
+
+  const startSession = async (source) => {
     const runtime = runtimeRef.current;
     if (runtime.running) return;
-    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+    if (source === 'file' && !videoFile) {
+      setError('Choose a video file first.');
+      return;
+    }
+    if (source === 'camera' && (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia)) {
       setCamera('error');
       setError('Camera access requires a supported browser on HTTPS or localhost.');
       return;
@@ -328,11 +369,14 @@ const CameraView = () => {
     runtime.muted = false;
     const session = ++runtime.generation;
     const current = () => runtime.generation === session && runtime.running;
+    setActiveSource(source);
+    runtime.armDetector = armMode === 'auto' ? createNearArmDetector() : null;
+    if (armMode === 'auto') setDetectedArm(null);
     setCamera('starting');
     setError('');
     setMuted(false);
     setModel('Loading pose model…');
-    setTracking({ state: 'lost', message: 'Waiting for live camera frames.' });
+    setTracking({ state: 'lost', message: source === 'file' ? 'Waiting for video frames.' : 'Waiting for live camera frames.' });
     setMetrics(EMPTY_METRICS);
     let phase = 'model';
     let captures = 0;
@@ -368,6 +412,18 @@ const CameraView = () => {
         },
         onResult: (result) => {
           if (!current() || runtime.muted || document.hidden || performance.now() - result.timestampMs > 500) return;
+          // Frames keep flowing on the current arm while the nearest arm is detected (about 10 frames).
+          const arm = runtime.armDetector?.update(result.landmarks);
+          if (arm) {
+            runtime.armDetector = null;
+            setDetectedArm(arm);
+            if (arm !== runtime.side) {
+              switchArm(runtime, arm);
+              setSide(arm);
+              setTracking({ state: 'lost', message: `Reacquiring your anatomical ${arm} arm.` });
+              return;
+            }
+          }
           runtime.result = result;
           analyzed += 1;
           inferenceMs = result.inferenceMs;
@@ -419,11 +475,11 @@ const CameraView = () => {
       if (!current()) return;
       phase = 'camera';
       setModel('Ready');
-      const stream = await runtime.manager.start(deviceId);
+      const stream = source === 'file' ? await runtime.manager.startFile(videoFile) : await runtime.manager.start(deviceId);
       if (!current() || !stream) return;
       setCamera('on');
       // Labels become available only after permission. Enumeration is optional.
-      navigator.mediaDevices.enumerateDevices?.().then((all) => {
+      if (source === 'camera') navigator.mediaDevices.enumerateDevices?.().then((all) => {
         if (current()) setDevices(all.filter((item) => item.kind === 'videoinput'));
       }).catch(() => {});
       const video = runtime.video;
@@ -483,7 +539,8 @@ const CameraView = () => {
       setModel(phase === 'model' ? 'Pose unavailable' : 'Stopped');
       setTracking(INITIAL_TRACKING);
       setMetrics(EMPTY_METRICS);
-      setError(phase === 'camera' ? cameraErrorMessage(failure) : (failure.message || 'The pose model could not load. Check your connection and try again.'));
+      const videoMessage = failure?.name === 'AbortError' ? 'The browser paused the video. Keep this tab visible and press Play Video again.' : cameraErrorMessage(failure);
+      setError(phase === 'camera' ? (source === 'file' ? videoMessage : cameraErrorMessage(failure)) : (failure.message || 'The pose model could not load. Check your connection and try again.'));
     }
   };
 
@@ -529,6 +586,15 @@ const CameraView = () => {
   };
   const changeSide = (event) => {
     const value = event.target.value;
+    if (value === 'auto') {
+      setArmMode('auto');
+      // Detect again on the next start; a running session keeps its current arm.
+      if (!runtimeRef.current.running) setDetectedArm(null);
+      return;
+    }
+    setArmMode('manual');
+    runtimeRef.current.armDetector = null;
+    if (value === runtimeRef.current.side) return;
     const state = runtimeRef.current.set.getState();
     if (state.state !== 'finished' && (state.hasActivity || curl?.attempt)) setPendingSide(value);
     else applySide(value);
@@ -537,6 +603,15 @@ const CameraView = () => {
     setFeatures(null);
     // Recalibration keeps the set but ends any in-progress attempt.
     startCalibration(runtimeRef.current);
+  };
+  const changeCalibrationMode = (event) => {
+    const runtime = runtimeRef.current;
+    const mode = event.target.value;
+    if (runtime.running || mode === runtime.calibrationMode) return;
+    runtime.calibrationMode = mode;
+    runtime.biomechanics = createBiomechanicsEngine({ side: runtime.side, view: 'side', calibrationMode: mode });
+    setCalibrationMode(mode);
+    setCalibration(runtime.biomechanics.getCalibration());
   };
   const changeAutoCalibrate = (event) => {
     setAutoCalibrate(event.target.checked);
@@ -630,7 +705,7 @@ const CameraView = () => {
         <div className="lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-6 lg:items-start">
         <div>
         <div className="flex flex-wrap gap-4 items-center mb-4 text-sm">
-          <label>Track arm <select value={side} onChange={changeSide} className="ml-2 rounded bg-zinc-800 border border-zinc-500 p-2"><option value="left">Left (your left)</option><option value="right">Right (your right)</option></select></label>
+          <label>Track arm <select value={armMode === 'auto' ? 'auto' : side} onChange={changeSide} className="ml-2 rounded bg-zinc-800 border border-zinc-500 p-2"><option value="auto">{armMode === 'auto' && detectedArm ? `Auto (${detectedArm} arm detected)` : 'Auto (arm nearest the camera)'}</option><option value="left">Left (your left)</option><option value="right">Right (your right)</option></select></label>
           <label className="flex gap-2 items-center"><input type="checkbox" checked={mirror} onChange={(event) => setMirror(event.target.checked)} />Mirror preview</label>
           {devices.length > 1 && <label>Camera <select className="ml-2 rounded bg-zinc-800 border border-zinc-500 p-2 max-w-full" value={deviceId} onChange={(event) => setDeviceId(event.target.value)} disabled={busy}><option value="">Default camera</option>{devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Camera ${index + 1}`}</option>)}</select></label>}
         </div>
@@ -640,19 +715,26 @@ const CameraView = () => {
           <button type="button" className="rounded bg-zinc-700 p-2" onClick={() => setPendingSide(null)}>Keep current arm</button>
         </div>}
         <div className="relative overflow-hidden rounded-xl bg-black" style={{ minHeight: busy ? undefined : '200px', transform: mirror ? 'scaleX(-1)' : undefined }}>
-          <video ref={videoRef} autoPlay playsInline muted className="block w-full h-auto" aria-label="Live camera preview" />
+          <video ref={videoRef} autoPlay playsInline muted controls={activeSource === 'file' && busy} className="block w-full h-auto" aria-label={activeSource === 'file' ? 'Video file preview' : 'Live camera preview'} />
           <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true" />
         </div>
         <div className="mt-4 space-y-1 text-sm" role="status" aria-live="polite">
-          <p><strong>Camera:</strong> {camera === 'starting' ? 'Starting — allow camera access when asked. Stop cancels startup.' : camera === 'on' ? (muted ? 'Interrupted' : 'On') : camera === 'error' ? 'Unavailable' : 'Off'}</p>
+          {activeSource === 'file' && busy
+            ? <p><strong>Video:</strong> {camera === 'starting' ? 'Starting…' : `Playing ${videoFile?.name ?? ''}`}</p>
+            : <p><strong>Camera:</strong> {camera === 'starting' ? 'Starting — allow camera access when asked. Stop cancels startup.' : camera === 'on' ? (muted ? 'Interrupted' : 'On') : camera === 'error' ? 'Unavailable' : 'Off'}</p>}
           <p><strong>Pose model:</strong> {model}</p>
           <p><strong>Tracking:</strong> {tracking.message}</p>
         </div>
         {error && <p role="alert" className="mt-3 rounded-lg border border-red-400 p-3 text-red-200">{error}</p>}
         <div className="flex gap-3 mt-4">
           <button type="button" onClick={startCamera} disabled={busy} className="px-6 py-3 bg-[#7ccc44] text-[#24201f] font-bold disabled:opacity-50 rounded-lg">Start Camera</button>
-          <button type="button" onClick={stopCamera} disabled={!busy} className="px-6 py-3 bg-red-700 text-white disabled:opacity-50 rounded-lg">Stop Camera</button>
+          <button type="button" onClick={stopCamera} disabled={!busy} className="px-6 py-3 bg-red-700 text-white disabled:opacity-50 rounded-lg">{activeSource === 'file' && busy ? 'Stop Video' : 'Stop Camera'}</button>
         </div>
+        <div className="flex flex-wrap gap-3 items-center mt-3 text-sm">
+          <label>Or analyze a video file <input type="file" accept="video/*" onChange={chooseVideo} disabled={busy} className="ml-2 max-w-full" aria-label="Video file" /></label>
+          <button type="button" onClick={startVideo} disabled={busy || !videoFile} className="px-4 py-2 bg-zinc-700 text-white disabled:opacity-50 rounded-lg">Play Video</button>
+        </div>
+        <p className="text-xs text-gray-400 mt-1">The video plays in this browser only; it is not uploaded. It runs through the same tracking, calibration and coaching as the camera, so it needs a side-on view and about a second of a relaxed, still arm before the first curl.</p>
         <p className="text-sm text-gray-300 mt-4">Supported curl view: stand side-on to the camera with your selected arm nearest it. Keep both shoulders, both hips, and the whole selected arm in frame, with good lighting. For calibration, relax your arm downward and hold still. Mirroring does not change your anatomical left and right.</p>
         </div>
         <div className="mt-5 lg:mt-0 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
@@ -660,9 +742,10 @@ const CameraView = () => {
           <h3 className="font-bold text-[#7ccc44]">Curl measurements · {side} arm · side-on view</h3>
           <p className="mt-2" role="status" aria-live="polite"><strong>Readiness:</strong> {features?.ready ? 'Ready — calibrated measurements available.' : awaitingAuto ? "Get into position side-on with your arm relaxed; calibration starts automatically." : calibration?.message || 'Start the camera, then calibrate your comfortable starting posture.'}</p>
           {awaitingAuto && calibration?.message && <p className="text-gray-300">{calibration.message}</p>}
-          <CalibrationProgress calibration={calibration} side={side} cameraOn={camera === 'on'} autoCalibrate={autoCalibrate} />
-          <button type="button" onClick={calibrate} disabled={camera !== 'on' || muted} className="mt-3 px-4 py-2 rounded-lg bg-zinc-700 disabled:opacity-50">{calibration?.status === 'ready' ? 'Recalibrate' : 'Calibrate starting posture'}</button>
-          <label className="mt-3 ml-3 inline-flex gap-2 items-center"><input type="checkbox" checked={autoCalibrate} onChange={changeAutoCalibrate} />Auto-calibrate when I'm in position</label>
+          <CalibrationProgress calibration={calibration} side={side} cameraOn={camera === 'on'} autoCalibrate={autoCalibrate || calibrationMode === 'continuous'} />
+          <button type="button" onClick={calibrate} disabled={camera !== 'on' || muted} className="mt-3 px-4 py-2 rounded-lg bg-zinc-700 disabled:opacity-50">{calibrationMode === 'continuous' ? 'Reset calibration' : calibration?.status === 'ready' ? 'Recalibrate' : 'Calibrate starting posture'}</button>
+          {calibrationMode === 'hold' && <label className="mt-3 ml-3 inline-flex gap-2 items-center"><input type="checkbox" checked={autoCalibrate} onChange={changeAutoCalibrate} />Auto-calibrate when I'm in position</label>}
+          <label className="mt-3 block">Calibration <select value={calibrationMode} onChange={changeCalibrationMode} disabled={busy} className="ml-2 rounded bg-zinc-800 border border-zinc-500 p-2"><option value="continuous">Continuous — no waiting (default)</option><option value="hold">Hold still first</option></select></label>
           <p className="mt-2 text-gray-300">Calibration clears the previous baseline. Hold still until ready; hiding a required joint makes measurements unavailable.</p>
           <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2">
             <div><dt>Elbow flexion</dt><dd>{measurement(features, 'elbowFlexionDeg')}</dd></div>

@@ -1,7 +1,7 @@
 # Sprint 04 — Real-time form coaching
 
-Status: original coaching and extension implemented, integrated and independently reviewed on automated evidence; recording, physical demo and live-audio acceptance remain pending (not complete)
-Last updated: 2026-10-03
+Status: **completed 2026-10-04** on Ajay's sign-off that the human checks passed (see "Sprint 4 close — 2026-10-04" at the end). Automated checks run by the lead; human checks reported by Ajay, not observed or measured in this repository.
+Last updated: 2026-10-04
 
 ## Scope and acceptance criteria
 
@@ -333,3 +333,74 @@ The user explicitly resumed implementation, including the interrupted video-to-m
 - Seven recordings still fail active-arm calibration or the side-view gate. The gates were not loosened. `rep-end-v2` can score human windows from side-on tracked angles without a calibration baseline. Live browser predictions still wait for a completed rep, which needs that baseline.
 - A three-way split produced no model. `ml/outputs/model/curl-pilot-1.json` is an experimental fixed-threshold swinging prototype. Its held-out precision is 0.143 and recall is 0.25. It is not a validated detector. Production rules stay disabled, and the form score stays unavailable.
 - On this resume, frontend `npm test` passed 265 logic tests and 15 UI tests, lint was clean, the production build succeeded, and backend pytest passed 97 tests. Those checks do not replace a live demo or reviewed cue evidence.
+
+## Sprint 4 close-out check — 2026-10-04 (this Mac, `main` at 4c65ea9)
+
+Ajay asked for Sprint 4 to be completed and confirmed done. The attached requirements docx matches `~/Downloads/GymBud_Master_and_Sprints_01-12/GymBud_Sprint_04_Real_Time_Form_Coaching.docx` and `sprint-4.md` word for word.
+
+### Checks run (lead, this session)
+
+| Check | Result |
+| --- | --- |
+| frontend `npm test` | 270/270 node tests (265 before this change + 5 new) and 15/15 Vitest UI tests |
+| frontend `npm run lint` | clean |
+| frontend `npm run build` | succeeds, vision asset SHA-256 verified |
+| backend `.venv/bin/python -m pytest -q` | 97 passed, one existing Starlette/httpx warning |
+
+### Exit criteria against the code
+
+| Item | State | Evidence |
+| --- | --- | --- |
+| GB 401 persistent detection | Implemented, synthetic only | `curlRules.js` gates, 400/500 ms persistence on timestamps; all three rules `enabled: false` (`curlRules.js:72,88,101`) |
+| GB 402 visual coaching | Implemented, DOM tests only | `CoachingPanel.jsx`; not yet seen with a real camera |
+| GB 403 speech control | Implemented, fake speech only | scheduler cooldowns/cancel tests; not yet heard in Chrome/Safari/iOS |
+| GB 404 set summary | Implemented and tested | `setSummary.js`, summary tests |
+| Three reviewed recordings, cue within persistence + delay | **Not met** | Tool now exists (below). No independently reviewed side-view recordings with a calibration hold. Seven of the eight existing clips never calibrate the active arm (`curl-ml-pilot-STATUS.md`) |
+| Isolated spikes produce no spoken correction | Synthetic pass only | `coaching-replay-eval.test.js` 200 ms spike; earlier seeds/fps sweep |
+| False cues per minute recorded, target chosen before review | **Not met** | Target not chosen (≤ 1/min is still a proposal); no measurement on reviewed clips |
+| Review demo (deviations, correct, mute, leave view, summary) | **Not met** | Needs Ajay on camera |
+
+### Code finished this session
+
+- `ml/coaching_eval.mjs`: replays an extracted pose cache through the camera page's tracking, biomechanics, auto-calibration, analyzer, issue tracker and scheduler (review mode, speech simulated on the frame clock) and scores cue delay against `issueStartMs` + persistence + 500 ms allowance, spoken-in-time count, false spoken cues per minute of calibrated `no-issue` time and of assessable time, labelled fraction and episodes. Acceptance eligibility needs a named reviewer, `independently-reviewed`, side view, calibrated time, and at least one issue and one `no-issue` window. Labels template `ml/coaching-labels.example.json`; usage in `docs/coaching-sprint-04.md`.
+- `frontend/tests/coaching-replay-eval.test.js`: 5 synthetic tests (speech clock, sustained swing cued in 400–900 ms with the repeat held by the 10 s cooldown, 200 ms spike silent, evaluation arithmetic and overlap/allowance rejection, large-lean limit).
+- Independent review (`s4-validation`, this session): 7 findings (4 medium, 3 low) on denominators, 0/0 passing, lenient eligibility, overlap double counting, swinging deadline, unchecked allowance, dropped interrupt output. All fixed and re-run.
+- Synthetic finding recorded, thresholds unchanged: a lean above about 17° moves the shoulder past the 0.3-torso reposition check, so calibration resets instead of a torso cue.
+
+### Decision needed and next actions
+
+- **Decision (Ajay, 2026-10-04): false-cue target adopted, at most 1 false spoken correction per minute of accepted-form curling**, chosen before review. Use `--false-cue-target-per-min 1`.
+- Video-file source added at Ajay's request (2026-10-04): the camera page can play a local video (for example from `video.assets/`) through the same pipeline instead of the live camera. Calibration still runs on each video, because it is a per-session baseline of that person's relaxed arm, not something the ML pilot learned. Clips without a relaxed still arm before the first curl will not calibrate. Checked by unit and UI tests; the in-app browser pane was hidden, so playback was not seen end to end.
+- Ajay records at least three side-on clips with a 1 s relaxed hold, labels windows; a second person reviews them; run the tool.
+- Live demo and Chrome/Safari (iOS if possible) audio by ear, using the checklist in `docs/coaching-sprint-04.md`.
+- Sprint 4 is not marked complete. No rule is enabled. `s4-` agents stay Active. Not pushed.
+
+### Continuous calibration — 2026-10-04 (Ajay's decision)
+
+Ajay: "we cant rely on waiting for calibration... there has to be auto calibration setup for every frame everytime." Implemented `calibrationMode: 'continuous'` (default on the camera page; Hold still first stays selectable). Every valid side-on frame updates a rolling 6 s baseline from the lowest relaxed-eligible arm position, so counting starts on the first curl after the arm has been lowered once. All values are unvalidated defaults; form rules stay disabled.
+
+Headless Chrome 153 on this Mac, video-file source, right arm, continuous mode (counts compared with the supplied, not independently reviewed annotation rows): `normal-swinging-sideangle` 4 (4 rows), `idealform-sideangle` 8 (8 rows), `excessive-swinging-sideangle` 3 (3 bounded rows + 1 `N/A` end; the video ends mid-rep), `idealform-45angle` 9 (9 rows), `normal-swinging-45angle` 0 (fails the side-on gate). Under hold mode only the first clip counted. Checks: `npm test` 277 node + 16 UI, lint clean.
+
+Known limits: habitual partial lowering moves the rolling bottom, so incomplete ROM is not measured against a true relaxed arm in this mode; torso and arm references move with the user. Front-view clips still fail the side-on gate.
+
+### Auto arm — 2026-10-04
+
+Ajay reported the counter stayed at 0. Same dev server and code counted reps in headless Chrome with Track arm set to Right; the page default was Left, and his clips are right-arm. Track arm now defaults to Auto (arm nearest the camera by landmark visibility). Headless Chrome with default settings: `normal-swinging-sideangle` 4, `idealform-sideangle` 8, `excessive-swinging-sideangle` 3, `idealform-45angle` 9. `npm test` 279 node + 17 UI, lint clean, build ok.
+
+## Sprint 4 close — 2026-10-04
+
+Ajay (product owner), 2026-10-04: "finish up sprint 4 and everythign you need to do. all human checks have passed i checked.. once done just push to a new branch called sprint-4-ajay and then merge that to main.."
+
+- **Accepted on Ajay's attestation.** He reports the human checks passed: reviewed recordings, live camera demo and audible speech. These were done by Ajay and are not observed, measured or stored in this repository. No reviewer name, recording list, per-recording cue delays or false-cues-per-minute value has been recorded. The adopted target is at most 1 false spoken correction per minute.
+- **Rules stay disabled.** All three form rules keep `enabled: false` and `evidence: []`. The repository rule allows `enabled: true` only with reviewed evidence recorded here, and none is recorded. To enable one: run `node ml/coaching_eval.mjs --labels ml/outputs/coaching-labels.json --false-cue-target-per-min 1` on the reviewed clips, then add the report summary and the reviewer to the rule's `evidence`. This is carryover for whoever enables coaching.
+- **Final automated checks (lead, this session, branch `sprint-4-ajay`):** see the commit `Sprint 4 completed`. Frontend `npm test` 279 node + 17 UI, `npm run lint` clean, `npm run build` ok, backend pytest 97 passed.
+- **Delivered this session:** `ml/coaching_eval.mjs` replay measurement tool (independently reviewed, 7 findings fixed); video-file source on the camera page; continuous per-frame calibration (default); automatic arm selection (default). Headless Chrome, video files, default settings: `normal-swinging-sideangle` 4, `idealform-sideangle` 8, `excessive-swinging-sideangle` 3, `idealform-45angle` 9 reps, matching the supplied annotation rows. Screenshot: `evidence-auto-arm-idealform-sideangle.png`.
+- **Handoff to Sprint 5:** cue configuration `feedback-1.1.0`; issue episode schema; set summary `set-summary-1.0.0` as the workout payload candidate; score `curl-score-1.0.0` (unavailable while no rule is enabled); unique rep, episode and set IDs. New this session: `calibration.mode` in the FeatureFrame snapshot, plus the auto-arm and video-file sources.
+- **Carryover:**
+  - Record the reviewed evidence and enable rules.
+  - Continuous calibration does not measure incomplete ROM against a true relaxed arm.
+  - Front and oblique views fail the side-on gate.
+  - Large swings above about 17° reset the hold-mode baseline (synthetic finding).
+  - Sprint 3's annotated counting target now rests on Ajay's attestation and the four clip counts above.
+- **Agents:** `s4-` agents retired in `.claude/AGENT-MAP.md`. Component files touched this sprint (`c-exercises`, `c-feedback`, `c-camera-ui`, `c-biomechanics`, `c-vision`, `c-backend`, `c-frontend-app`, `c-validation`, `c-ml`, `c-docs`) carry the Sprint 4 contracts, history and carryover.
+- **Retrospective:** one improvement is to record human acceptance checks in the sprint record when they happen (who, which clips, results), so evidence does not rest on a later summary. Owner: Sprint 5 lead. Check at the Sprint 5 start.

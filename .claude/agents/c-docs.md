@@ -25,6 +25,8 @@ Update this file in the same change whenever any of these happen to this compone
 - Sprint 0 wrote the setup docs (`s0-docs`).
 - Codex setup (2026-10-03, lead): added outer workspace `../AGENTS.md`, `.codex/WORKFLOW.md`, `.codex/AGENT-MAP.md`, and 28 routing briefs targeting the existing shared definitions. Added catch-up guidance to `AGENTS.md` and `docs/WORKFLOW.md`: incoming Sprint 1–4 documents are memory intake until implementation is explicitly requested. Canonical component knowledge remains in `.claude/agents/`.
 
+- Sprint 4 close-out (2026-10-04): `docs/coaching-sprint-04.md` gained "Measuring the exit criterion on recordings".
+
 ## Open carryover
 
 - None recorded.

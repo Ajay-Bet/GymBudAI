@@ -31,6 +31,12 @@ Update this file in the same change whenever any of these happen to this compone
 
 - Sprint 1 built the camera shell (`s1-camera-ui`). Sprint 2 added calibration, measurements and the developer stability readout (`s2-calibration-ui`). Sprint 3 wired the curl analyzer, added CurlPanel, fixed set-wiping on stop, and added auto-calibration (`s3-workout-ui`). Sprint 4 wired the issue tracker, scheduler and speech and added CoachingPanel and SetSummaryPanel (`s4-coaching-ui`); headless Chrome check with a fake camera only.
 
+- 2026-10-04 (Sprint 4 close-out, Ajay's request): video-file source. `CameraManager.startFile(file)` plays a local object URL (revoked on stop, `onFileEnded` callback); CameraView adds a Video file picker and Play Video that run the same pose/tracking/calibration/coaching pipeline. Video end pauses the set like Stop. Mirror defaults off for files. A hidden or background tab blocks playback (`AbortError`, power saving), so it shows a keep-visible message.
+
+- 2026-10-04: Calibration select (Continuous — no waiting, default / Hold still first), changeable while stopped; hold-mode auto-calibrate is skipped in continuous mode; button reads Reset calibration. Headless Chrome on Ajay's clips (right arm, continuous): normal-swinging-sideangle 4, idealform-sideangle 8, excessive-swinging-sideangle 3, idealform-45angle 9, normal-swinging-45angle 0 (fails side-on gate).
+
+- 2026-10-04: Track arm defaults to Auto (arm nearest the camera); detection runs at each start while frames keep flowing, then `switchArm` interrupts any attempt and reacquires. Ajay's counter stayed at 0 because Track arm defaulted to Left on right-arm clips. Headless Chrome with default settings: 4, 8, 3, 9 reps on the side/45° clips.
+
 ## Open carryover
 
 - JSX today; TypeScript is the target architecture, with no broad migration yet.

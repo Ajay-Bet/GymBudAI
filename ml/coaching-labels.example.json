@@ -1,0 +1,17 @@
+{
+  "_comment": "Template for node ml/coaching_eval.mjs --labels. Copy to ml/outputs/coaching-labels.json (ignored) and fill in. Times are ms on the pose-cache clock (decoded video PTS). label: no-issue | torso-swing | upper-arm-drift | swinging | incomplete-rom. issueStartMs (optional) is when the sustained issue first becomes visible inside the window. reviewStatus becomes independently-reviewed only after a second person checked the windows.",
+  "recordings": {
+    "example-side-curls-1": {
+      "side": "right",
+      "view": "side",
+      "labeller": "Ajay",
+      "reviewer": null,
+      "reviewStatus": "unreviewed",
+      "windows": [
+        { "startMs": 3000, "endMs": 5200, "label": "no-issue" },
+        { "startMs": 5800, "endMs": 8000, "issueStartMs": 6300, "label": "torso-swing" },
+        { "startMs": 8600, "endMs": 10100, "label": "incomplete-rom" }
+      ]
+    }
+  }
+}

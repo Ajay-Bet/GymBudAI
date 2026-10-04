@@ -37,12 +37,12 @@ The "Lead" role in each sprint is the sprint chat itself, so it has no agent fil
 | `s3-exercises` | `docs/sprints/sprint-3-STATUS.md` | Exercise analyzer specialist | `c-exercises` (and the additive `engine.js` field in `c-biomechanics`) | Retired |
 | `s3-workout-ui` | `docs/sprints/sprint-3-STATUS.md` | Workout UI specialist | `c-camera-ui` | Retired |
 | `s3-validation` | `docs/sprints/sprint-3-STATUS.md` | Independent validation specialist | `c-validation` | Retired |
-| `s4-exercises` | `docs/sprints/sprint-4-STATUS.md` | Exercise rules and summary specialist | `c-exercises` | Active |
-| `s4-feedback` | `docs/sprints/sprint-4-STATUS.md` | Feedback and speech specialist | `c-feedback` | Active |
-| `s4-coaching-ui` | `docs/sprints/sprint-4-STATUS.md` | Coaching UI specialist | `c-camera-ui` | Active |
-| `s4-validation` | `docs/sprints/sprint-4-STATUS.md` | Independent validation specialist | `c-validation` | Active |
-| `s4-biomechanics` | `docs/sprints/sprint-4-STATUS.md` | Calibration specialist (extension) | `c-biomechanics` | Active |
-| `s4-backend` | `docs/sprints/sprint-4-STATUS.md` | Coaching proxy specialist (extension) | `c-backend`, `c-frontend-app` (`api/coach.js`) | Active |
+| `s4-exercises` | `docs/sprints/sprint-4-STATUS.md` | Exercise rules and summary specialist | `c-exercises` | Retired |
+| `s4-feedback` | `docs/sprints/sprint-4-STATUS.md` | Feedback and speech specialist | `c-feedback` | Retired |
+| `s4-coaching-ui` | `docs/sprints/sprint-4-STATUS.md` | Coaching UI specialist | `c-camera-ui` | Retired |
+| `s4-validation` | `docs/sprints/sprint-4-STATUS.md` | Independent validation specialist | `c-validation` | Retired |
+| `s4-biomechanics` | `docs/sprints/sprint-4-STATUS.md` | Calibration specialist (extension) | `c-biomechanics` | Retired |
+| `s4-backend` | `docs/sprints/sprint-4-STATUS.md` | Coaching proxy specialist (extension) | `c-backend`, `c-frontend-app` (`api/coach.js`) | Retired |
 
 Sprints5–6 and10–12 have no sprint agents yet. The explicitly authorized curl ML pilot selects bounded parts of Sprints7–9 in this existing chat; it does not mark those full sprints complete.
 

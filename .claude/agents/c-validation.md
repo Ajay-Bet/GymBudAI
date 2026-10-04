@@ -24,12 +24,13 @@ Update this file in the same change whenever any of these happen to this compone
 
 ## History
 
-- Sprint 1 (`s1-validation`) and Sprint 2 (`s2-validation`). Sprint 3 (`s3-validation`) added `tests/fixtures/curl-fixtures.js`, `curl-analyzer.test.js`, `curl-pipeline.test.js`, `curl-fixes.test.js`; 106 frontend tests pass (synthetic) as of Sprint 3. Sprint 4 (`s4-validation`) added `tests/fixtures/coaching-fixtures.js`, `tests/fixtures/coaching-speech-fake.js` and `coaching-{rules,scheduler,speech,summary}.test.js` (72 tests), reviewed twice (D1–D6 fixed); 178 frontend tests pass (synthetic) as of Sprint 4.
+- Sprint 1 (`s1-validation`) and Sprint 2 (`s2-validation`). Sprint 3 (`s3-validation`) added `tests/fixtures/curl-fixtures.js`, `curl-analyzer.test.js`, `curl-pipeline.test.js`, `curl-fixes.test.js`; 106 frontend tests pass (synthetic) as of Sprint 3. Sprint 4 (`s4-validation`) added `tests/fixtures/coaching-fixtures.js`, `tests/fixtures/coaching-speech-fake.js` and `coaching-{rules,scheduler,speech,summary}.test.js` (72 tests), reviewed twice (D1–D6 fixed); 178 frontend tests pass (synthetic) as of Sprint 4. Sprint 4 close-out (2026-10-04): `coaching-replay-eval.test.js` (5 synthetic tests) for `ml/coaching_eval.mjs`, reviewed by `s4-validation` (7 findings fixed); 270 node + 15 UI tests pass.
 
 ## Open carryover
 
 - Physical-camera evidence for Sprint 2 targets is still missing.
-- Sprint 4 exit criterion (three independently reviewed recordings, false cues per minute) not run; user reports recordings available, labels/review pending.
+- Sprint 4 exit criterion (three independently reviewed recordings, false cues per minute) not run; the measuring tool `ml/coaching_eval.mjs` now exists, labelled and reviewed side-view recordings with a calibration hold are still needed.
+- Synthetic finding (2026-10-04): a lean above about 17° about the hip moves the shoulder past the 0.3-torso reposition check, so calibration resets and no torso cue is given. Check on real recordings.
 - Component/DOM coverage now exists; actual browser/device behavior remains unverified.
 - No real-device evidence of the low-frame-rate behaviour.
 - Sprint 3 exit target (three annotated recordings, ≤ 1 count error per 20 curls each) not run; independent review pending.
@@ -42,6 +43,7 @@ Update this file in the same change whenever any of these happen to this compone
 - Wait until parallel source edits settle before running and reporting (Sprint 3).
 - Test timing/stall rules across many seeds and noise levels and report rates, not one pass (Sprint 3).
 - Turn live-run defects into labelled fixtures and confirm they fail under the old configuration (Sprint 3).
+- A false-cue rate needs a denominator of calibrated, coachable accepted-form time, plus a rate over all assessable time and the labelled fraction; 0/0 must never pass an acceptance check (Sprint 4).
 - Assert persistence timing as ≥ persistence and < persistence + one frame interval from the first valid frame; report min/max per fps across seeds (Sprint 4).
 - A fake speech synthesis must cover cancel firing end, error or nothing, plus late events (Sprint 4).
 - Mutation-check safety gates in a scratch copy to confirm the tests catch them (Sprint 4).

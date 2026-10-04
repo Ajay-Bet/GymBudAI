@@ -42,7 +42,7 @@ Update this file in the same change whenever any of these happen to this compone
 - Thresholds are tuned from one participant and two sessions; B+95 top may reject users with a short comfortable range. Needs annotated recordings from more people (Sprint 3 exit target: ≤ 1 count error per 20 curls in each of three recordings, not yet run).
 - Upper-arm drift is unsigned (forward direction not derivable side-on); lateral flare deferred.
 - Movement under ~2 °/s counts as a pause.
-- No rule is validated: reviewed recordings of torso swing, arm drift and incomplete ROM (plus accepted-form examples) are needed before any `enabled: true` (Sprint 4 exit criterion not met).
+- No rule is enabled. Sprint 4 closed 2026-10-04 on Ajay's attestation that the human checks passed, but no per-rule evidence is recorded; `enabled: true` still needs reviewed evidence entered in `curlRules.js` `evidence` and the sprint record (measure with `ml/coaching_eval.mjs`, target ≤ 1 false cue/min).
 - Below about 7 fps the tracker reports `'low-frame-rate'`; no coaching at that rate.
 - `reset()` does not attach analyzer attempt IDs to episodes (the old session is discarded).
 

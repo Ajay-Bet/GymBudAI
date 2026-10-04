@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { curl, makeFrame, render as renderFrames } from '../fixtures/curl-fixtures.js';
 const mocks = vi.hoisted(() => ({ pose: null, camera: null, close: vi.fn(), stop: vi.fn(), prime: vi.fn(), speak: vi.fn(), cancel: vi.fn(), tts: vi.fn(), wording: vi.fn(), status: vi.fn(), subscriptions: new Set() }));
 vi.mock('../../src/vision/PoseEngine.js', () => ({ createPoseEngine: (options) => { mocks.pose = options; return { start: async () => {}, close: mocks.close, process: vi.fn() }; } }));
-vi.mock('../../src/vision/CameraManager.js', () => ({ cameraErrorMessage: (error) => error.message, createCameraManager: (options) => { mocks.camera = options; return { start: async () => ({}), stop: mocks.stop }; } }));
+vi.mock('../../src/vision/CameraManager.js', () => ({ cameraErrorMessage: (error) => error.message, createCameraManager: (options) => { mocks.camera = options; return { start: async () => ({}), startFile: async (file) => { mocks.file = file; return file; }, stop: mocks.stop }; } }));
 vi.mock('../../src/vision/drawPose.js', () => ({ clearPose: vi.fn(), drawPose: vi.fn() }));
 vi.mock('../../src/biomechanics/engine.js', () => ({ FEATURE_SCHEMA: { units: {} }, createBiomechanicsEngine: () => {
   let calibration = { status: 'uncalibrated', progress: 0 };
@@ -38,6 +38,31 @@ function fullCurl(startMs = 1000, side = 'left') {
   return renderFrames({ startMs, side, noiseDeg: 0, spacingJitter: 0, dropFrameProb: 0, script: [{ ms: 500 }, ...curl()] });
 }
 describe('CameraView with real analyzer, lifecycle, tracker and voice', () => {
+  it('auto arm picks the arm nearest the camera from landmark visibility', async () => {
+    render(<CameraView />);
+    await start();
+    const landmarks = Array.from({ length: 33 }, (_, i) => ({ x: 0.5, y: 0.5, presence: 1,
+      visibility: [12, 14, 16].includes(i) ? 0.95 : [11, 13, 15].includes(i) ? 0.2 : 0.9 }));
+    act(() => { for (let i = 0; i < 12; i += 1) mocks.pose.onResult({ frame: makeFrame({ timestampMs: 1000 + i * 33, flexionDeg: 10 }), timestampMs: 1000 + i * 33, inferenceMs: 1, landmarks }); });
+    expect(screen.getByRole('option', { name: 'Auto (right arm detected)' })).toBeTruthy();
+  });
+  it('plays a chosen video file through the same pipeline and pauses the set when the video ends', async () => {
+    render(<CameraView />);
+    expect(screen.getByRole('button', { name: 'Play Video' }).disabled).toBe(true);
+    const file = new File(['x'], 'curls.mp4', { type: 'video/mp4' });
+    fireEvent.change(screen.getByLabelText('Video file'), { target: { files: [file] } });
+    expect(screen.getByLabelText('Mirror preview').checked).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Play Video' }));
+    await waitFor(() => expect(screen.getByText('Playing curls.mp4')).toBeTruthy());
+    expect(mocks.file).toBe(file);
+    expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
+    emit(fullCurl());
+    expect(screen.getByText('Set active')).toBeTruthy();
+    act(() => mocks.camera.onFileEnded());
+    expect(screen.getByText('Set paused — camera off')).toBeTruthy();
+    expect(screen.getByText(/Video finished/)).toBeTruthy();
+    expect(screen.getByRole('rowheader', { name: '1' })).toBeTruthy();
+  });
   it('Stop pauses and restart retains completed reps; Finish is separate and next set has fresh counters', async () => {
     render(<CameraView />);
     await start();
