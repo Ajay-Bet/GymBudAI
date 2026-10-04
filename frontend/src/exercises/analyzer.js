@@ -19,7 +19,8 @@ import { CURL_EXERCISE_ID, createCurlAnalyzer } from './curl.js';
  * @property {string} configVersion
  *
  * @typedef {Object} RepSummary
- * @property {string} id Unique within the session; equals the RepEvent id.
+ * @property {string} id Globally unique (`curl-<sessionUid>-<n>`, new UUID per analyzer/reset); equals the
+ *   RepEvent id and the attempt id the analyzer reported while this rep was in progress.
  * @property {number} index 1-based completed-rep number in the session.
  * @property {'completed'} status
  * @property {'left'|'right'} side Anatomical side.
@@ -66,7 +67,8 @@ import { CURL_EXERCISE_ID, createCurlAnalyzer } from './curl.js';
  *   'unsupported-view' | null.
  * @property {number} repCount Completed reps in the session.
  * @property {{id: string, startMs: number, phase: Phase}|null} attempt Current committed attempt.
- * @property {RepEvent[]} events Events produced by this frame only; each id is emitted once per session.
+ * @property {RepEvent[]} events Events produced by this frame only; each id is emitted once and never repeats
+ *   across sessions or reloads.
  * @property {{elbowFlexionDeg: number|null, directionDegS: number|null}} live
  * @property {CandidateIssue[]} candidateIssues Confirmed episodes on the current attempt.
  *
@@ -79,8 +81,67 @@ import { CURL_EXERCISE_ID, createCurlAnalyzer } from './curl.js';
  *   paused true and pauseReason = reason. Keeps completed reps and the count. A non-finite timestamp
  *   uses the last processed one. Does not change update()'s timestamp ordering.
  * @property {(reason?: string) => AnalyzerOutput} reset
- * @property {() => {exerciseId: string, configVersion: string, featureVersion: string|null,
- *   side: string|null, completedReps: RepSummary[], interruptedAttempts: InterruptedAttempt[]}} getSession
+ * @property {() => AnalyzerSession} getSession
+ *
+ * @typedef {Object} AnalyzerSession
+ * @property {string} sessionId Session UID used in rep/attempt IDs (new per analyzer instance and reset).
+ * @property {string} exerciseId
+ * @property {string} configVersion
+ * @property {string|null} featureVersion
+ * @property {string|null} side
+ * @property {string|null} view
+ * @property {RepSummary[]} completedReps
+ * @property {InterruptedAttempt[]} interruptedAttempts
+ */
+
+/**
+ * Sprint 4 coaching types (curlRules.js, setSummary.js). See "Agreed coaching contract" in
+ * docs/sprints/sprint-4-STATUS.md. Times are FeatureFrame.timestampMs (ms).
+ *
+ * @typedef {'torso-swing'|'upper-arm-drift'|'incomplete-rom'} IssueType
+ *
+ * @typedef {Object} IssueEpisode One continuous issue episode (one event however many frames it spans).
+ * @property {string} id `issue-<sessionUid>-<n>`, globally unique.
+ * @property {IssueType} type
+ * @property {number} startMs First frame of the onset evidence (incomplete-rom: attempt end).
+ * @property {number|null} endMs null while open. 'resolved': first frame of the release run; other
+ *   reasons: last assessable frame of the episode; incomplete-rom: attempt end.
+ * @property {number|null} peak Largest |value| observed in the episode (incomplete-rom: achieved ROM).
+ * @property {'deg'} unit
+ * @property {'resolved'|'tracking-lost'|'recalibration'|'set-ended'|'reset'|'evaluated-at-attempt-end'|null} endReason
+ * @property {string[]} attemptIds Committed analyzer attempts (attempt.id / rep id) overlapping the episode.
+ * @property {string} rulesVersion
+ * @property {string|null} analyzerVersion
+ * @property {boolean} enabled Rule may coach users (false for every rule until validated).
+ * @property {'unvalidated'|'validated'} validation
+ *
+ * @typedef {{type: 'issue-started'|'issue-ended', episode: IssueEpisode}} IssueEvent
+ *
+ * @typedef {Object} ActiveIssue An open continuous episode.
+ * @property {IssueType} type
+ * @property {string} episodeId
+ * @property {number} startMs
+ * @property {number|null} peak
+ * @property {'deg'} unit
+ * @property {'active'|'suspended'} state 'suspended' while the rule is not assessable (not released).
+ * @property {boolean} enabled
+ * @property {'unvalidated'|'validated'} validation
+ *
+ * @typedef {Object} IssueOutput
+ * @property {number|null} timestampMs
+ * @property {boolean} assessable Frame passed the validity gate.
+ * @property {null|'tracking-dropout'|'tracking-loss'|'calibration-required'|'unsupported-view'|'recalibration'|'low-frame-rate'} unavailableReason
+ * @property {ActiveIssue[]} active
+ * @property {IssueEvent[]} events New this frame only; an episode starts and ends at most once.
+ *
+ * @typedef {Object} IssueSession
+ * @property {string} sessionId Session UID used in episode IDs.
+ * @property {string} rulesVersion
+ * @property {IssueEpisode[]} episodes
+ * @property {{startMs: number, endMs: number}[]} assessableIntervals Runs of consecutive assessable frames.
+ * @property {number|null} startedMs First processed frame.
+ * @property {number|null} lastMs Last processed frame.
+ * @property {number|null} endedMs Set by end(); null before.
  */
 
 /** Create an empty exercise registry. */

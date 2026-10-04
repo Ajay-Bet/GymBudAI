@@ -12,6 +12,8 @@
  * @typedef {import('./analyzer.js').CandidateIssue} CandidateIssue
  */
 
+import { createSessionUid } from './ids.js';
+
 export const CURL_EXERCISE_ID = 'dumbbell-curl';
 
 /**
@@ -88,10 +90,6 @@ const ISSUE_RULES = [
 
 const INTERRUPT_REASONS = ['tracking-loss', 'recalibration'];
 
-// Page-wide session counter: every analyzer instance and every reset takes a new number, so
-// IDs of the form curl-<session>-<n> never repeat within a page lifetime.
-let sessionCounter = 0;
-
 const finite = (value) => (Number.isFinite(value) ? value : null);
 const maxOrNull = (current, value) => (value === null ? current : current === null ? value : Math.max(current, value));
 const minOrNull = (current, value) => (value === null ? current : current === null ? value : Math.min(current, value));
@@ -134,12 +132,13 @@ export function createCurlAnalyzer({ config = {} } = {}) {
   const settings = Object.freeze({ ...CURL_CONFIG, ...config });
   validateConfig(settings);
 
-  let sessionSeq, attemptSeq, phase, phaseSinceMs, lastTimestamp, lastReady, directionSamples, attempt,
+  let sessionUid, attemptSeq, phase, phaseSinceMs, lastTimestamp, lastReady, directionSamples, attempt,
     bottomSamples, validClockMs, completedReps, interruptedAttempts, emittedIds, side, view, featureVersion, lastOutput;
 
   function clearSession() {
-    sessionCounter += 1;
-    sessionSeq = sessionCounter; attemptSeq = 0;
+    // Every analyzer instance and every reset takes a new session UID, so rep/attempt IDs of the form
+    // curl-<sessionUid>-<n> are unique across reloads (Sprint 3 D7). Counting is unaffected.
+    sessionUid = createSessionUid(); attemptSeq = 0;
     phase = 'idle'; phaseSinceMs = null; lastTimestamp = null; lastReady = false; directionSamples = [];
     attempt = null; bottomSamples = []; validClockMs = 0; completedReps = []; interruptedAttempts = []; emittedIds = new Set();
     side = null; view = null; featureVersion = null;
@@ -205,7 +204,7 @@ export function createCurlAnalyzer({ config = {} } = {}) {
     return duration > 0 ? Math.min(1, attempt.validObservedMs / duration) : null;
   }
 
-  function nextId() { attemptSeq += 1; return `curl-${sessionSeq}-${attemptSeq}`; }
+  function nextId() { attemptSeq += 1; return `curl-${sessionUid}-${attemptSeq}`; }
 
   /** End the current attempt as interrupted. Emits an event only for committed attempts. */
   function endAttempt(reason, endMs, events) {
@@ -439,7 +438,7 @@ export function createCurlAnalyzer({ config = {} } = {}) {
   }
 
   function getSession() {
-    return { exerciseId: settings.exerciseId, configVersion: settings.version, featureVersion, side,
+    return { sessionId: sessionUid, exerciseId: settings.exerciseId, configVersion: settings.version, featureVersion, side, view,
       completedReps: completedReps.map(structuredCloneSafe), interruptedAttempts: interruptedAttempts.map(structuredCloneSafe) };
   }
 

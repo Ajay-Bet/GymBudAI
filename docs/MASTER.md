@@ -253,3 +253,9 @@ A teammate can clone the repository using the README, start all local services, 
 Large datasets and model binaries live in Cloud Storage rather than ordinary Git history. Keep only manifests and small approved fixtures in the repository. Each sprint document supplies a specific backlog, technical plan, verification checklist, and review record; the master plan governs shared definitions.
 
 ## Technical references
+
+- Cloud SQL connections from Cloud Run
+- Cloud Storage overview
+- MediaPipe Pose Landmarker for Web
+- Cloud Run secrets configuration
+- Cloud Billing budgets and alerts
