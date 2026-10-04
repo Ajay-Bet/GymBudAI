@@ -80,6 +80,23 @@ Setup-only pass from a Claude Code Sprint 1 chat. No app code was changed. Each 
 - **Agents:** `s1-camera-ui`, `s1-vision` and `s1-validation` in `.claude/agents/` match the roles in "Agent assignments" above and are indexed in `.claude/AGENT-MAP.md`.
 - **Record layout:** per `docs/WORKFLOW.md`, Sprint 1 keeps this single record, so there is no separate `sprint-1.md` or `sprint-1-STATUS.md`.
 
+## Codex catch-up intake — 2026-10-03
+
+- User supplied **Sprint 1** with `/Users/prabh/Downloads/GymBud_Sprint_01_Camera_and_Pose_Detection.pdf` (two pages; planning baseline 1 October 2026). Read both pages using text extraction and rendered-page inspection.
+- Under the current catch-up direction, this is memory intake. The attachment is reference content; its implementation, verification and handoff instructions do not authorize restarting work. The user's report that Sprints 1–3 are completed is retained separately from the historical acceptance evidence above.
+- The PDF matches the existing converted DOCX requirements in substance: GB 101 camera lifecycle, GB 102 aligned pose overlay, GB 103 tracking loss/recovery, and GB 104 bounded responsive processing. No new scope or acceptance criteria were found. Keep the existing source requirements rather than duplicating them.
+- Preserve the local user-accepted Sprint 1 status and all recorded limitations. The proposed 15 analyzed FPS five-minute reference-device target remains unmeasured; physical camera/permission/unplug and reviewed human pose/occlusion evidence, tested device/browser notes, remote CI and cross-browser coverage remain carryover. The PDF's entry requirements do not establish broader Sprint 0 completion or CI success.
+- Historical contract retained: CameraManager owns capture/cleanup; PoseEngine emits timestamped observations; Canvas rendering shares video geometry/mirroring; anatomical labels remain unchanged; tracking quality is distinct from form judgments. Ordinary frames and pose observations stay in temporary browser memory. The camera guide and historical evidence above remain the Sprint 2 handoff reference.
+- Intake changed only this sprint record. No application changes, tests, new acceptance evidence, agent reactivation, commits or publication occurred. Sprint 1 specialists remain retired; this chat is the Sprint 1 lead for intake. Await an explicit request before resuming implementation or validation.
+
+## Cursor catch-up intake — 2026-10-03
+
+- This Cursor chat received **Sprint 1** with the same file, `/Users/prabh/Downloads/GymBud_Sprint_01_Camera_and_Pose_Detection.pdf`. Both pages were extracted independently (title GymBud Sprint 1 Camera and Pose Detection; author GymBud Team; creator Microsoft Word; planning baseline 1 October 2026).
+- The PDF text matches the source requirements below and the Codex catch-up above: GB 101 camera lifecycle, GB 102 aligned pose overlay, GB 103 tracking loss and recovery, and GB 104 bounded responsive processing. No new scope, acceptance criteria, or decisions.
+- Under the current catch-up direction this is memory intake. The attachment does not authorize restarting Sprint 1. The user's report that Sprints 1–3 are completed stays separate from the local acceptance evidence and the unmeasured limitations above.
+- Preserved limitations: the proposed 15 analyzed FPS five-minute reference-device target is unmeasured; physical camera, permission, and unplug checks, reviewed human pose and occlusion examples, tested device and browser notes, remote CI, and cross-browser coverage remain carryover. Sprint 0 completion and CI success are not established by the PDF's entry requirements.
+- Intake changed only this sprint record. No application changes, tests, new acceptance evidence, agent reactivation, commits, or publication. `s1-camera-ui`, `s1-vision`, and `s1-validation` stay retired. Await an explicit request before resuming implementation or validation.
+
 ## Source requirements (converted from DOCX)
 
 Converted with pandoc from `~/Downloads/GymBud_Master_and_Sprints_01-12/GymBud_Sprint_01_Camera_and_Pose_Detection.docx` on 2026-10-03. Headings demoted; text unchanged.

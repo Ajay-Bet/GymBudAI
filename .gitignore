@@ -9,3 +9,10 @@ __pycache__/
 .env
 .env.*
 !.env.example
+
+# Local, user-supplied research recordings/annotations and reproducible generated outputs
+video.assets/
+backend/annotations.csv
+ml/outputs/
+ml/artifacts/
+frontend/public/models/

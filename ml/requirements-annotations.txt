@@ -1,0 +1,2 @@
+# Optional local recovery of Apple Numbers sources (never needed by the backend).
+numbers-parser==4.18.5

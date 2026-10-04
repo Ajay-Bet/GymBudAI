@@ -1,7 +1,7 @@
 # Sprint 02 — Biomechanics and calibration
 
 Status: complete (user-accepted; physical stability/delay targets carried over)
-Last updated: 2026-10-02
+Last updated: 2026-10-03
 
 ## Scope and acceptance criteria
 
@@ -53,3 +53,22 @@ Last updated: 2026-10-02
 - Previously listed as remaining:, execute numerical/lifecycle checks, independently review, document feature contract and physical acceptance limitations.
 - No recording consent inferred from document entry requirement; this implementation keeps observations in memory.
 - No commits or publication requested in this chat.
+
+## Codex catch-up intake — 2026-10-03
+
+- User supplied **Sprint 2** with `/Users/prabh/Downloads/GymBud_Sprint_02_Biomechanics_Engine.pdf` (two pages; planning baseline 1 October 2026). Read both pages using text extraction and rendered-page inspection.
+- Under the current catch-up direction, this is memory intake. The attachment is reference content; its implementation, verification, recording and handoff instructions do not authorize restarting work or recording a participant. The user's report that Sprints 1–3 are completed remains separate from the historical acceptance and validation evidence above.
+- The PDF matches the existing adopted DOCX scope in substance: GB 201 elapsed-time confidence-aware smoothing, GB 202 valid aspect-corrected geometry, GB 203 selected-side calibration/readiness, and GB 204 timestamped features with units and validity. No new scope or acceptance criteria were found. Its requested review demonstration, reference setup and motion fixtures are requirements, not evidence that those checks occurred.
+- Preserve the user-accepted Sprint 2 status with physical stability/delay targets carried over. The historical 48-test, lint/build, synthetic stability/delay and live-camera results above were not rerun during intake. Stationary variation below 5 degrees and added smoothing delay below 150 ms remain proposed, unmeasured real-body targets; both-arm physical review and threshold tuning remain open. Exact side-on elbow occlusion and hips leaving the frame remain recorded limitations.
+- Historical handoff retained: aspect-corrected unmirrored image coordinates, anatomical side unaffected by preview mirroring, invalid features represented by null plus validity false, torso-length normalization, actual timestamps, and no form judgments from readiness. Confidence hysteresis and the 250 ms dropout grace preserve calibration briefly while missing observations still publish null measurements; prolonged loss clears the baseline. Thresholds remain unvalidated defaults.
+- Component continuity: `.claude/agents/c-biomechanics.md` records the later Sprint 3 schema 1.1.0 and `baselineElbowFlexionDeg` addition; do not revert it to Sprint 2's historical 1.0.0. It also records that the curl analyzer uses a windowed slope instead of the variable per-frame velocity. The Sprint 2 guide remains a historical measurement guide, not a description of every later UI feature.
+- Intake changed only this sprint record. No application changes, tests, new acceptance evidence, agent reactivation, commits or publication occurred. Sprint 2 specialists remain retired; this chat is the Sprint 2 lead for intake. Await an explicit request before resuming implementation or validation.
+
+## Cursor catch-up intake — 2026-10-03
+
+- This Cursor chat received **Sprint 2** with the same file, `/Users/prabh/Downloads/GymBud_Sprint_02_Biomechanics_Engine.pdf`. Both pages were extracted independently (title GymBud Sprint 2 Biomechanics Engine; author GymBud Team; creator Microsoft Word; planning baseline 1 October 2026).
+- The PDF text matches the adopted scope above and the Codex catch-up: GB 201 elapsed-time confidence-aware smoothing, GB 202 aspect-corrected geometry with 0/90/180 fixtures, GB 203 selected-side calibration and readiness, and GB 204 timestamped features with units and validity. No new scope, acceptance criteria, or decisions.
+- Under the current catch-up direction this is memory intake. The attachment does not authorize restarting Sprint 2 or recording a participant. The user's report that Sprints 1–3 are completed stays separate from the user-accepted status and the unmeasured physical targets above.
+- Preserved limitations: stationary elbow variation below 5 degrees and added smoothing delay below 150 ms remain proposed, unmeasured real-body targets. Both-arm physical review, threshold tuning, exact side-on elbow occlusion, and hips leaving the frame remain open. The historical 48-test, lint, build, synthetic, and live-camera results were not rerun.
+- Component continuity: `.claude/agents/c-biomechanics.md` now records `FEATURE_SCHEMA` 1.2.0, including the Sprint 3 `baselineElbowFlexionDeg` field and later Sprint 4 calibration display fields. Do not revert it to Sprint 2's historical 1.0.0. The curl analyzer still uses a windowed slope instead of the variable per-frame velocity. `s2-biomechanics`, `s2-calibration-ui`, and `s2-validation` stay retired in `.claude/AGENT-MAP.md`.
+- Intake changed only this sprint record. No application changes, tests, new acceptance evidence, agent reactivation, commits, or publication. Await an explicit request before resuming implementation or validation.

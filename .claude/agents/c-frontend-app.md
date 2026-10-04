@@ -31,3 +31,10 @@ Update this file in the same change whenever any of these happen to this compone
 ## Lessons learned
 
 - None yet.
+
+
+## Sprint 4 extension continuity — 2026-10-03
+
+- `api/coach.js`: same-origin configuration status/TTS/wording with forwarded AbortSignal and bounded Promise-race deadlines (including noncooperative fetch/body reads). No client key/frame upload. Tests `tests/coach-api.test.js`5/5pass.
+- Vite `/api/coach` proxy targets127.0.0.1:8080 for local development; not production routing. Vitest5.0.3/jsdom30.1.1/testing-library pinned with existing lock. npm test requires node suites plus actual DOM suites; removed passWithNoTests so missing panels cannot silently pass. Existing frontend remains JSX; no separate type-check script added/claimed.
+- 247 node+11 DOM tests, lint/build pass. Optional backend unavailable does not block counting/local summaries; official-model verification and setup documented backend README. Knowledge writeback: lead from s4-backend/review.

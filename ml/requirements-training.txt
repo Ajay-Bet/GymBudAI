@@ -1,0 +1,2 @@
+# The portable baseline and its tests use Python >=3.10 standard library only.
+# No packages to install. Extraction requirements are separate.

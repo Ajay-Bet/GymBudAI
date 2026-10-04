@@ -37,5 +37,22 @@ The "Lead" role in each sprint is the sprint chat itself, so it has no agent fil
 | `s3-exercises` | `docs/sprints/sprint-3-STATUS.md` | Exercise analyzer specialist | `c-exercises` (and the additive `engine.js` field in `c-biomechanics`) | Retired |
 | `s3-workout-ui` | `docs/sprints/sprint-3-STATUS.md` | Workout UI specialist | `c-camera-ui` | Retired |
 | `s3-validation` | `docs/sprints/sprint-3-STATUS.md` | Independent validation specialist | `c-validation` | Retired |
+| `s4-exercises` | `docs/sprints/sprint-4-STATUS.md` | Exercise rules and summary specialist | `c-exercises` | Active |
+| `s4-feedback` | `docs/sprints/sprint-4-STATUS.md` | Feedback and speech specialist | `c-feedback` | Active |
+| `s4-coaching-ui` | `docs/sprints/sprint-4-STATUS.md` | Coaching UI specialist | `c-camera-ui` | Active |
+| `s4-validation` | `docs/sprints/sprint-4-STATUS.md` | Independent validation specialist | `c-validation` | Active |
+| `s4-biomechanics` | `docs/sprints/sprint-4-STATUS.md` | Calibration specialist (extension) | `c-biomechanics` | Active |
+| `s4-backend` | `docs/sprints/sprint-4-STATUS.md` | Coaching proxy specialist (extension) | `c-backend`, `c-frontend-app` (`api/coach.js`) | Active |
 
-Sprints 4–12 have no sprint agents yet. Each sprint chat creates its own `sN-` agents from the component files and adds rows here.
+Sprints5–6 and10–12 have no sprint agents yet. The explicitly authorized curl ML pilot selects bounded parts of Sprints7–9 in this existing chat; it does not mark those full sprints complete.
+
+
+## Authorized curl ML pilot specialists (partial Sprints 7–9)
+
+| Agent | Record | Role | Status |
+| --- | --- | --- | --- |
+| `s7-data` | `docs/sprints/curl-ml-pilot-STATUS.md` | Dataset annotations/matching | Active |
+| `s7-pose` | `docs/sprints/curl-ml-pilot-STATUS.md` | Local pose extraction and shared features | Active |
+| `s8-training` | `docs/sprints/curl-ml-pilot-STATUS.md` | Grouped portable classifier training/evaluation | Active |
+| `s9-browser` | `docs/sprints/curl-ml-pilot-STATUS.md` | Experimental rep-end model integration | Active |
+| `s9-validation` | `docs/sprints/curl-ml-pilot-STATUS.md` | Independent pipeline review | Active |

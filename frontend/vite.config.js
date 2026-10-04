@@ -13,6 +13,10 @@ export default defineConfig({
         target: 'http://127.0.0.1:8080',
         rewrite: () => '/health',
       },
+      // Sprint 4 coaching voice/wording proxy. The OpenAI key stays in the backend only.
+      '/api/coach': {
+        target: 'http://127.0.0.1:8080',
+      },
     },
   },
 })

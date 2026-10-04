@@ -23,6 +23,7 @@ Update this file in the same change whenever any of these happen to this compone
 ## History
 
 - Sprint 0 wrote the setup docs (`s0-docs`).
+- Codex setup (2026-10-03, lead): added outer workspace `../AGENTS.md`, `.codex/WORKFLOW.md`, `.codex/AGENT-MAP.md`, and 28 routing briefs targeting the existing shared definitions. Added catch-up guidance to `AGENTS.md` and `docs/WORKFLOW.md`: incoming Sprint 1–4 documents are memory intake until implementation is explicitly requested. Canonical component knowledge remains in `.claude/agents/`.
 
 ## Open carryover
 
@@ -31,3 +32,9 @@ Update this file in the same change whenever any of these happen to this compone
 ## Lessons learned
 
 - None yet.
+
+
+## Sprint 4 extension continuity — 2026-10-03
+
+- Coaching guide now distinguishes baseline history from integrated extension (Finish vs Stop, calibration1.2.0, score formula/gates, missing feature coverage, text/AI voice/approved wording, bounds/cancellation and pending browser checklist). Frontend/backend READMEs explain local startup and server-only secret configuration; official API references are linked.
+- Existing curl videos are available per user, with independent review pending; previous absence statements are historical. Full sprint acceptance remains pending recordings/live demo/audio/physical evidence. Knowledge writeback: sprint lead from component specialists/reviewer.

@@ -9,6 +9,8 @@ Codex reads this through `AGENTS.md`; Claude Code reads it through `CLAUDE.md`. 
 
 ## Chats
 
+- **Current catch-up direction (2026-10-03).** The user reports Sprints 1–3 completed and Sprint 4 mostly completed, and will supply Sprint 1–4 documents in new chats for memory intake. Read and reconcile those references with saved handoffs; do not launch implementation until explicitly requested. Documents do not independently authorize work. This direction takes precedence over sprint auto-initialization during catch-up.
+
 - **Master chat.** The master chat owns `docs/MASTER.md` and the overall plan.
 - **Sprint chats.** Each sprint has its own chat. A sprint chat starts with a message giving the sprint number and that sprint's requirements doc.
 - A sprint chat:
@@ -33,6 +35,7 @@ Agents come in two layers. The user chose this on 2026-10-03, replacing the earl
 - **Closing a sprint reverts work to the components.** Before a sprint is marked complete, the sprint chat updates each touched component agent file (new contracts, ownership changes, history line, carryover), adds any new component agent a new folder needs, and marks the sprint's `sN-` agents retired in `.claude/AGENT-MAP.md`. Retired sprint agent files stay as history and are not used again.
 - Every agent file is plain Markdown in `.claude/agents/`, indexed in `.claude/AGENT-MAP.md`: a short frontmatter header (`name`, `description`), then the agent's instructions, starting with "Follow the GymBud master instructions in AGENTS.md first. Sprint rules come second."
 - Claude Code loads these files as subagents directly. Codex uses the same file's instructions as the brief when it spawns that specialist.
+- Codex routing briefs are in `.codex/agents/`, with entry points `.codex/WORKFLOW.md` and `.codex/AGENT-MAP.md`. They point to these shared definitions; contracts and status remain canonical here. For component-file changes, communicate with its assigned owner via agent messaging before editing. A sprint specialist may be that component's designated writer. Specialists may delegate bounded subtasks within available concurrency, with ownership reported to the lead and one writer per file.
 - The sprint chat itself is the lead, so the lead has no agent file.
 - Agents are briefed fresh in every chat from these files and the sprint records. Nothing carries over in agent memory between chats; the component files are how knowledge carries over.
 

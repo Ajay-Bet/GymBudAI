@@ -41,7 +41,7 @@ const percent = (ratio) => (finite(ratio) ? `${Math.round(ratio * 100)}%` : NOT_
 
 function issueList(issues) {
   if (!issues?.length) return 'None detected';
-  return issues.map((issue) => `${ISSUE_LABELS[issue.type] ?? issue.type} — candidate (not coaching yet)`).join('; ');
+  return issues.map((issue) => `${ISSUE_LABELS[issue.type] ?? issue.type} — candidate (detector output, not a correction)`).join('; ');
 }
 
 function phaseText(output, measurementsReady, calibration) {
@@ -58,7 +58,7 @@ function phaseText(output, measurementsReady, calibration) {
   return phase;
 }
 
-const CurlPanel = ({ side, output, session, measurementsReady, calibration, onResetSet, canReset }) => {
+const CurlPanel = ({ side, output, session, measurementsReady, calibration, finished = false }) => {
   const completed = session?.completedReps ?? [];
   const interrupted = session?.interruptedAttempts ?? [];
   const count = output?.repCount ?? completed.length;
@@ -70,9 +70,9 @@ const CurlPanel = ({ side, output, session, measurementsReady, calibration, onRe
           <p className="text-gray-300">Completed reps</p>
           <p className="text-5xl font-bold leading-none">{count}</p>
         </div>
-        <button type="button" onClick={onResetSet} disabled={!canReset} className="px-4 py-2 rounded-lg bg-zinc-700 disabled:opacity-50">Reset set</button>
+
       </div>
-      <p className="mt-3" role="status" aria-live="polite"><strong>Phase:</strong> {phaseText(output, measurementsReady, calibration)}</p>
+      <p className="mt-3" role="status" aria-live="polite"><strong>Phase:</strong> {finished ? 'Set finished' : phaseText(output, measurementsReady, calibration)}</p>
       {output?.attempt && <p className="text-gray-300">Current attempt in progress — counted only after returning to the bottom.</p>}
       <p className="mt-2 text-gray-300">A rep counts once after a full bottom → top → bottom movement with enough valid tracking. Tracking loss interrupts the current attempt but keeps completed reps.</p>
 
@@ -120,7 +120,7 @@ const CurlPanel = ({ side, output, session, measurementsReady, calibration, onRe
         </ul>
       )}
 
-      <p className="mt-4 text-gray-300">Possible issues are detector candidates for a later sprint. They are not corrections and are not spoken. This set is kept only in this browser session.</p>
+      <p className="mt-4 text-gray-300">Possible issues are raw detector candidates, not corrections. Cues come only from the Form coaching panel, which shows validated rules (or unvalidated rules in developer review mode, labelled as such). This set is kept only in this browser session.</p>
       <p className="mt-1 text-gray-300">Detector configuration: {session?.configVersion ?? output?.configVersion ?? NOT_ASSESSED} · Feature version: {session?.featureVersion ?? NOT_ASSESSED}</p>
     </div>
   );

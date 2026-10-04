@@ -13,7 +13,7 @@ import { angleDegrees, distance, signedTiltDegrees, toAspectPoint } from './geom
  */
 export const DEFAULT_CONFIG = Object.freeze({ confidence: 0.5, releaseConfidence: 0.3, dropoutGraceMs: 250,
   smoothingMs: 100, maxGapMs: 500,
-  calibrationMs: 1000, calibrationMinFrames: 8, maxOrientationRatio: 0.45,
+  calibrationMs: 1000, calibrationMinFrames: 8, maxCalibrationFlexionDeg: 45, maxOrientationRatio: 0.45,
   stableAngleRangeDeg: 8, stablePositionRange: 0.06, repositionRatio: 0.3 });
 /**
  * Feature contract shared with UI and validation. Displacement and velocity of the elbow
@@ -21,19 +21,22 @@ export const DEFAULT_CONFIG = Object.freeze({ confidence: 0.5, releaseConfidence
  * the selected anatomical side, measured in aspect-corrected unmirrored image coordinates.
  */
 export const FEATURE_SCHEMA = Object.freeze({
-  version: '1.1.0',
+  version: '1.2.0',
   coordinateSpace: 'unmirrored-image-height',
   units: Object.freeze({ elbowInteriorDeg: 'deg', elbowFlexionDeg: 'deg', torsoTiltDeg: 'deg',
     upperArmTiltDeg: 'deg', elbowDisplacement: 'torso-lengths', upperArmDriftDeg: 'deg',
     torsoDeviationDeg: 'deg', elbowAngularVelocityDegS: 'deg/s', elbowVelocityPerS: 'torso-lengths/s' }),
-  // 1.1.0 (Sprint 3, additive): calibration snapshots carry baselineElbowFlexionDeg.
+  // 1.2.0 (Sprint 4, additive): blockedReason and monotonic collection progress.
   normalization: 'elbowDisplacement and elbowVelocityPerS use the elbow position relative to the shoulder divided by the current smoothed shoulder-hip (torso) segment length for the selected side; angles are unnormalized degrees.',
 });
 
 /**
  * @typedef {Object} CalibrationSnapshot
  * @property {'uncalibrated'|'collecting'|'ready'} status
- * @property {number} progress 0-1.
+ * @property {number} progress 0-1; highest collection progress since a hard reset.
+ *   Trimming movement evidence does not lower this display value; readiness always uses the
+ *   actual contiguous retained observation window (1000 ms and at least 8 frames by default).
+ * @property {string|null} blockedReason Specific positioning or stability blocker.
  * @property {string} message User-facing guidance.
  * @property {number|null} baselineElbowFlexionDeg Mean raw (unsmoothed) elbow flexion in degrees over
  *   the accepted calibration samples (relaxed arm). A number only while status is 'ready'; otherwise
@@ -84,7 +87,7 @@ export function createBiomechanicsEngine({ side = 'left', view = 'side', config 
   let dropoutSince = null;
   const releaseConfidence = Math.min(settings.releaseConfidence, settings.confidence);
   let calibration = { status: 'uncalibrated', progress: 0, message: 'Choose your side, stand sideways and calibrate with your arm relaxed.' };
-  const snapshot = () => ({ ...calibration,
+  const snapshot = () => ({ blockedReason: null, ...calibration,
     baselineElbowFlexionDeg: calibration.status === 'ready' && baseline ? baseline.elbowFlexion : null });
   function reset(reason = 'Calibration cleared. Hold still and calibrate again.') {
     lastTimestamp = null; dimensions = null; filtered = null; previous = null; baseline = null; samples = [];
@@ -92,10 +95,10 @@ export function createBiomechanicsEngine({ side = 'left', view = 'side', config 
     calibration = { status: 'uncalibrated', progress: 0, message: reason };
     return snapshot();
   }
-  function invalidate(reason) {
+  function invalidate(reason, blockedReason = null) {
     filtered = null; previous = null; baseline = null; samples = []; dropoutSince = null;
-    if (calibration.status === 'collecting') calibration = { status: 'collecting', progress: 0, message: reason };
-    else calibration = { status: 'uncalibrated', progress: 0, message: reason };
+    if (calibration.status === 'collecting') calibration = { status: 'collecting', progress: 0, message: reason, blockedReason };
+    else calibration = { status: 'uncalibrated', progress: 0, message: reason, blockedReason };
   }
   function update(result, tracking = { state: 'active' }) {
     const timestamp = result?.timestampMs;
@@ -112,12 +115,12 @@ export function createBiomechanicsEngine({ side = 'left', view = 'side', config 
       return frame;
     }
     if (!Number.isFinite(timestamp) || timestamp < 0 || (lastTimestamp !== null && timestamp <= lastTimestamp)) {
-      invalidate('Invalid or out-of-order timestamp. Calibrate again.');
+      invalidate('Invalid or out-of-order timestamp. Calibrate again.', 'tracking-gap');
       return finish('invalid-timestamp');
     }
     const dt = lastTimestamp === null ? null : timestamp - lastTimestamp;
     lastTimestamp = timestamp;
-    if (dt !== null && dt > settings.maxGapMs) invalidate('Tracking gap. Calibrate again.');
+    if (dt !== null && dt > settings.maxGapMs) invalidate('Tracking gap. Calibrate again.', 'tracking-gap');
     const width = result?.sourceWidth, height = result?.sourceHeight;
     if (![width, height].every(Number.isFinite) || width <= 0 || height <= 0) {
       invalidate('Invalid camera dimensions.'); return finish('invalid-dimensions');
@@ -140,10 +143,14 @@ export function createBiomechanicsEngine({ side = 'left', view = 'side', config 
         if (timestamp - dropoutSince <= settings.dropoutGraceMs) {
           previous = null;
           frame.dropout = true;
+          calibration.blockedReason = tracking?.state !== 'active' ? 'tracking-gap'
+            : `joints-not-visible:${['shoulder', 'elbow', 'wrist', 'hip'][indices.findIndex((i) => !selectedReliable(i))]}`;
           return finish('tracking-unreliable');
         }
       }
-      invalidate('Keep your selected shoulder, elbow, wrist and hip visible and wait for stable tracking.');
+      const missing = indices.findIndex((i) => !selectedReliable(i));
+      invalidate('Keep your selected shoulder, elbow, wrist and hip visible and wait for stable tracking.',
+        missing >= 0 ? `joints-not-visible:${['shoulder', 'elbow', 'wrist', 'hip'][missing]}` : 'tracking-gap');
       return finish('tracking-unreliable');
     }
     // First reliable frame after a grace-window dropout: restart smoothing from the current raw
@@ -151,6 +158,7 @@ export function createBiomechanicsEngine({ side = 'left', view = 'side', config 
     // calibration are kept; `previous` is already null, so velocity resumes on the next frame.
     if (dropoutSince !== null) filtered = null;
     dropoutSince = null;
+    calibration.blockedReason = null;
     const points = indices.map((i) => toAspectPoint(landmarks[i], width, height));
     frame.raw = geometry(points);
     const torso = distance(points[0], points[3]);
@@ -167,7 +175,7 @@ export function createBiomechanicsEngine({ side = 'left', view = 'side', config 
       frame.orientation.valid = view === 'side' && frame.orientation.ratio <= settings.maxOrientationRatio;
     }
     if (!frame.orientation.valid) {
-      invalidate('Use a side-on view with your selected shoulder and hip visible; far-side joints may be hidden. This is an approximate orientation check.');
+      invalidate('Use a side-on view with your selected shoulder and hip visible; far-side joints may be hidden. This is an approximate orientation check.', 'not-side-on');
       return finish('unsupported-or-unreliable-view');
     }
     if (baseline && (distance(points[0], baseline.shoulder) / baseline.torso > settings.repositionRatio
@@ -195,15 +203,32 @@ export function createBiomechanicsEngine({ side = 'left', view = 'side', config 
     previous = { flexion: frame.smoothed.elbowFlexionDeg, relative };
     if (calibration.status === 'collecting') {
       const sample = { timestamp, geometry: frame.raw, relative: rawRelative, shoulder: points[0], torso };
+      // A bent arm is not a relaxed-bottom reference. This is an unvalidated engineering
+      // eligibility bound, not a physical assessment or an exercise form rule.
+      if (frame.raw.elbowFlexionDeg > settings.maxCalibrationFlexionDeg) {
+        samples = [];
+        calibration.progress = 0;
+        calibration.blockedReason = 'arm-not-relaxed';
+        calibration.message = 'Relax and lower your selected arm before calibrating.';
+        return finish();
+      }
       samples.push(sample);
-      const first = samples[0];
-      const unstable = samples.some((s) => GEOMETRY_KEYS.some((key) => Math.abs(angularDifference(s.geometry[key], first.geometry[key])) > settings.stableAngleRangeDeg)
-        || distance(s.relative, first.relative) > settings.stablePositionRange
-        || distance(s.shoulder, first.shoulder) / first.torso > settings.stablePositionRange
-        || Math.abs(s.torso / first.torso - 1) > settings.stablePositionRange);
-      if (unstable) samples = [sample];
+      const consistent = (reference, s) => !GEOMETRY_KEYS.some((key) =>
+        Math.abs(angularDifference(s.geometry[key], reference.geometry[key])) > settings.stableAngleRangeDeg)
+        && distance(s.relative, reference.relative) <= settings.stablePositionRange
+        && distance(s.shoulder, reference.shoulder) / reference.torso <= settings.stablePositionRange
+        && Math.abs(s.torso / reference.torso - 1) <= settings.stablePositionRange;
+      // Keep the longest contiguous valid suffix instead of throwing away every observation.
+      // Each retained observation passes precisely the original first-reference gates. No
+      // median/outlier exclusion, invalid gap bridging, or widened stability tolerance is used.
+      let trim = 0;
+      while (trim < samples.length - 1 && !samples.slice(trim).every((s) => consistent(samples[trim], s))) trim += 1;
+      const unstable = trim > 0;
+      if (unstable) samples = samples.slice(trim);
       const elapsed = timestamp - samples[0].timestamp;
-      calibration.progress = Math.min(1, elapsed / settings.calibrationMs, samples.length / settings.calibrationMinFrames);
+      calibration.progress = Math.max(calibration.progress,
+        Math.min(0.99, elapsed / settings.calibrationMs, samples.length / settings.calibrationMinFrames));
+      calibration.blockedReason = unstable ? 'moving' : null;
       calibration.message = unstable ? 'Movement detected. Hold your relaxed arm and torso still.' : 'Hold still while the baseline is collected.';
       if (elapsed >= settings.calibrationMs && samples.length >= settings.calibrationMinFrames) {
         const mean = (fn) => samples.reduce((sum, s) => sum + fn(s), 0) / samples.length;

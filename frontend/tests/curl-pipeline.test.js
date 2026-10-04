@@ -34,8 +34,8 @@ test('registry register/create/list, rejects duplicates and bad input, and insta
   assert.throws(() => registry.create('dumbbell-curl', { config: { minCoverage: 0 } }), /Invalid curl config/);
 });
 
-test('engine 1.1.0 publishes baselineElbowFlexionDeg only while calibration is ready', () => {
-  assert.equal(FEATURE_SCHEMA.version, '1.1.0');
+test('engine 1.2.0 publishes baselineElbowFlexionDeg only while calibration is ready', () => {
+  assert.equal(FEATURE_SCHEMA.version, '1.2.0');
   const engine = createBiomechanicsEngine({ side: 'left' });
   assert.equal(engine.getCalibration().baselineElbowFlexionDeg, null);
   assert.equal(engine.calibrate().baselineElbowFlexionDeg, null);
@@ -98,7 +98,7 @@ test('synthetic pipeline: three curls through the real engine count three, with 
   const completed = completedOf(p.events);
   assert.equal(completed.length, 3);
   for (const { rep } of completed) {
-    assert.equal(rep.featureVersion, '1.1.0');
+    assert.equal(rep.featureVersion, '1.2.0');
     assert.ok(rep.romDeg > 100 && rep.romDeg < 125, `ROM ${rep.romDeg}`);
     assert.equal(rep.coverage, 1);
     assert.equal(rep.side, 'left');

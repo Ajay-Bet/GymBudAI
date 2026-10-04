@@ -31,3 +31,12 @@ Update this file in the same change whenever any of these happen to this compone
 ## Lessons learned
 
 - None yet.
+
+
+## Sprint 4 extension continuity — 2026-10-03
+
+- Implemented optional `/api/coach/status`, `/tts`, `/wording` plus config/schemas/services and backend tests. Key only backend/.env/environment; .env Git-ignore verified without secret content inspection. Configuration booleans are not provider capability checks. No-key503 retains local operation.
+- Supported configurable defaults gpt-4o-mini-tts/marin and gpt-4.1-mini Responses/strict schema per official links in backend README; proposed gpt-6-luna public API support not established. AI only selects approved variant indices; validates exact numeric finding schema/placement/thresholds/focus/score consistency. Never changes deterministic score. Review narration audibly experimental.
+- Request caps2KiB TTS/8KiB wording; bounded streamed responses5MiB/256KiB, deadlines10s/8s, zero retries, process rate limits30/10perminute. Server TTS LRU128entries/16MiB with model/voice/purpose/instructions/text key. Public errors do not reveal provider content/key.
+- 97 mocked pytest tests pass plus Python compilation; one existing Starlette TestClient/httpx deprecation warning. Real provider/audio not tested and no paid calls. Prototype runs loopback only; auth/persistence/deployment remain future sprint scope.
+- Knowledge writeback: lead from s4-backend/review.

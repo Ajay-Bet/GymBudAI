@@ -17,7 +17,7 @@ Update this file in the same change whenever any of these happen to this compone
 
 ## Contracts to keep
 
-- `FEATURE_SCHEMA` and the `FeatureFrame` typedef in `engine.js` (version 1.1.0, coordinate space `unmirrored-image-height`, units for every value). Invalid values are `null` with validity `false`, never 0.
+- `FEATURE_SCHEMA` and the `FeatureFrame` typedef in `engine.js` (version 1.2.0, coordinate space `unmirrored-image-height`, units for every value). Invalid values are `null` with validity `false`, never 0.
 - Calibration snapshot (`CalibrationSnapshot`) includes `baselineElbowFlexionDeg`: mean raw flexion of the accepted calibration samples, a number only while status is `ready`, else null (added Sprint 3 for the curl analyzer).
 - `createBiomechanicsEngine({ side, view, config })` → `update(result, tracking)`, `calibrate()`, `reset()`, `setSide()`, `setView()`, `getCalibration()`.
 - `createStabilityTracker()` and `measureStepDelay()` in `stability.js`.
@@ -41,3 +41,11 @@ Update this file in the same change whenever any of these happen to this compone
 - Normalize smoothed vectors by the smoothed reference length, not the raw one, or raw jitter leaks back in (Sprint 2).
 - Requiring far-side shoulder/hip visibility blocks a true side view; accept finite far-side estimates (Sprint 2).
 - Exact side-on lets the torso hide the elbow on a real body (Ajay's live test, Sprint 2).
+
+
+## Sprint 4 extension continuity — 2026-10-03
+
+- FeatureFrame1.2.0 additive `calibration.blockedReason`/display progress. Required evidence remains contiguous stable valid1000ms and≥8frames. On instability retain longest suffix meeting the original first-reference8°/.06/scale checks; no median widening or extended baseline hold. Relaxed elbow collection eligibility≤45° unvalidated setting; auto-initiation still≤40°.
+- Display progress retains high-water below.99 until readiness; true invalidation resets. Baseline retention remains250ms grace; >500ms source gap or reposition invalidates. Snapshot codes missing-joint name/not-side-on/moving/arm-not-relaxed/tracking-gap/null.
+- Reproducible synthetic seed7 before→after15fps1333→1067ms,30fps1167→1067ms,60fps8633→1017ms. Seeds2026/42 remain1000ms. Dedicated replay fixtures/tests record original checks; physical speed/stationary variation/delay and video review pending.
+- Lesson: retain contiguous qualifying observations rather than full noise-driven resets; a monotonic visual indicator must never authorize readiness without the real retained window. Knowledge writeback: lead from s4-biomechanics/review.
