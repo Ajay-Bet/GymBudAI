@@ -6,6 +6,14 @@ How Codex did it before: no standalone Codex agent `.md` files existed in this r
 
 The "Lead" role in each sprint is the sprint chat itself, so it has no agent file.
 
+This map is the single source of truth for agent ownership and status for every tool. The agent files in `.claude/agents/` are the canonical briefs.
+
+| Tool | How it reaches these agents |
+| --- | --- |
+| Claude Code | Loads `.claude/agents/*.md` as subagents directly (via `CLAUDE.md`). |
+| Codex | Routing briefs in `.codex/agents/*.md` point to the matching `.claude/agents/` file (entry points `.codex/WORKFLOW.md`, `.codex/AGENT-MAP.md`). |
+| Cursor | The always-applied rule `.cursor/rules/gymbud.mdc` points here; the Cursor chat briefs each specialist from its `.claude/agents/` file. No per-agent Cursor files. |
+
 ## Component agents (standing)
 
 | Agent | Owns |

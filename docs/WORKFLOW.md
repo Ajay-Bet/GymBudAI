@@ -1,6 +1,6 @@
-# GymBud chat workflow (shared by Codex and Claude Code)
+# GymBud chat workflow (shared by Codex, Claude Code and Cursor)
 
-Codex reads this through `AGENTS.md`; Claude Code reads it through `CLAUDE.md`. Both tools follow the same rules, agents and records.
+Codex reads this through `AGENTS.md`; Claude Code reads it through `CLAUDE.md`; Cursor reads it through `AGENTS.md` and `.cursor/rules/gymbud.mdc`. All three tools follow the same rules, agents and records. A chat in any of them can be the master chat or a sprint chat.
 
 ## Rules and precedence
 
@@ -36,6 +36,7 @@ Agents come in two layers. The user chose this on 2026-10-03, replacing the earl
 - Every agent file is plain Markdown in `.claude/agents/`, indexed in `.claude/AGENT-MAP.md`: a short frontmatter header (`name`, `description`), then the agent's instructions, starting with "Follow the GymBud master instructions in AGENTS.md first. Sprint rules come second."
 - Claude Code loads these files as subagents directly. Codex uses the same file's instructions as the brief when it spawns that specialist.
 - Codex routing briefs are in `.codex/agents/`, with entry points `.codex/WORKFLOW.md` and `.codex/AGENT-MAP.md`. They point to these shared definitions; contracts and status remain canonical here. For component-file changes, communicate with its assigned owner via agent messaging before editing. A sprint specialist may be that component's designated writer. Specialists may delegate bounded subtasks within available concurrency, with ownership reported to the lead and one writer per file.
+- Cursor's entry point is the always-applied rule `.cursor/rules/gymbud.mdc`. It points to `AGENTS.md`, this file and `.claude/AGENT-MAP.md`, and tells Cursor to brief each specialist from its `.claude/agents/` file. Cursor has no per-agent files, so nothing needs adding for Cursor when an agent is created.
 - The sprint chat itself is the lead, so the lead has no agent file.
 - Agents are briefed fresh in every chat from these files and the sprint records. Nothing carries over in agent memory between chats; the component files are how knowledge carries over.
 
@@ -52,4 +53,4 @@ Agents teach the next agent by writing things down as they happen, not only at s
 
 ## Commits
 
-- No AI co-author trailers or AI authorship lines in commits or pull requests (see `AGENTS.md`). Claude Code's own attribution is turned off in `.claude/settings.json`.
+- No AI co-author trailers or AI authorship lines in commits or pull requests (see `AGENTS.md`). Claude Code's own attribution is turned off in `.claude/settings.json`; Codex and Cursor follow the same rule from `AGENTS.md`.

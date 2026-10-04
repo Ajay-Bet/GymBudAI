@@ -1,6 +1,6 @@
 # GymBud project guidance
 
-- Codex also reads `.codex/WORKFLOW.md` and `.codex/AGENT-MAP.md`. These route to the existing shared agent records rather than duplicating component knowledge.
+- Codex also reads `.codex/WORKFLOW.md` and `.codex/AGENT-MAP.md`. Cursor also reads `.cursor/rules/gymbud.mdc`. These route to the existing shared agent records rather than duplicating component knowledge.
 - User direction (2026-10-03): Sprints 1–3 are completed and Sprint 4 is mostly completed. Upcoming Sprint 1–4 chats/documents are memory intake until the user explicitly asks to start/resume implementation. This overrides the automatic sprint initialization rule below for those catch-up chats. Preserve recorded validation limitations and distinguish user-reported completion from acceptance evidence.
 
 - Read `docs/project-instructions.md` at the start of every chat and before assigning work to subagents. It contains the user-adopted project architecture, stack, safety, validation, and completion requirements.
@@ -19,7 +19,12 @@
 - Preserve unrelated local changes. Inspect existing code before replacing it. The user has explicitly decided to remove the Java/Spring backend and implement Python/FastAPI as specified in the original project instructions. This stack decision is settled; follow the original sprint sequence and do not reopen the decision or require further approval for it. Do not describe the target stack as already implemented.
 - Close each work session with an updated sprint handoff and a concise report of changes, checks actually run, remaining limitations, and the next action. Never mark a sprint complete without acceptance evidence.
 
-## Shared Codex and Claude Code setup
+## Shared Codex, Claude Code and Cursor setup
 
-- Codex and Claude Code follow the same rules, agents and records. Read `docs/MASTER.md` and `docs/WORKFLOW.md` at the start of every chat; `WORKFLOW.md` defines the master/sprint chat workflow, sprint record names and shared agents.
+- Codex, Claude Code and Cursor follow the same rules, agents and records. This file is the master entry point for all three. Each tool's own files only point here and to the shared records; they never hold their own copy of rules, contracts or agent status:
+  - Claude Code: `CLAUDE.md` imports this file and the docs below; it loads `.claude/agents/*.md` as subagents.
+  - Codex: reads this file natively, plus `.codex/WORKFLOW.md`, `.codex/AGENT-MAP.md` and the routing briefs in `.codex/agents/`.
+  - Cursor: reads this file natively, plus the always-applied rule `.cursor/rules/gymbud.mdc`.
+- When a new agent is added, create its canonical `.claude/agents/<name>.md`, add its row to `.claude/AGENT-MAP.md`, and add a Codex routing brief in `.codex/agents/`. Cursor needs no per-agent file; its rule points at the shared map.
+- All three tools Read `docs/MASTER.md` and `docs/WORKFLOW.md` at the start of every chat; `WORKFLOW.md` defines the master/sprint chat workflow, sprint record names and shared agents.
 - Agents come in two layers (see `WORKFLOW.md`): standing component agents `.claude/agents/c-<component>.md` and per-sprint agents `.claude/agents/sN-<role>.md`, indexed in `.claude/AGENT-MAP.md`. Inside a sprint, use that sprint's `sN-` agents, briefed from the component files they touch; outside a sprint, use the owning `c-` agent. When a sprint closes, update the touched component files and retire its `sN-` agents. Keep component files and sprint records current as things happen (contract changes, decisions, defects, real-world findings), as `WORKFLOW.md` describes under "Keeping agent knowledge current".

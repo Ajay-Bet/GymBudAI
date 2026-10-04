@@ -1,0 +1,26 @@
+---
+description: GymBud master instructions, shared agents and sprint workflow (Cursor entry point)
+alwaysApply: true
+---
+
+# Cursor adapter for the shared GymBud workflow
+
+Cursor, Codex and Claude Code follow the same rules, agents and sprint records. This file only points at them; it holds no rules, contracts or status of its own.
+
+## Read first, in this order
+
+1. `AGENTS.md` (master instructions; it overrides everything below it).
+2. `docs/project-instructions.md` and `docs/MASTER.md`.
+3. `docs/WORKFLOW.md` (master/sprint chat workflow, sprint record names, shared agents, keeping knowledge current).
+4. `docs/sprints/README.md`, then the selected sprint's `docs/sprints/sprint-N.md` and `sprint-N-STATUS.md` (Sprints 0–2 use `sprint-0N.md`).
+
+## Agents
+
+- Ownership and Active/Retired status live only in `.claude/AGENT-MAP.md`.
+- Each agent's canonical brief is `.claude/agents/<name>.md` (standing `c-<component>` owners and per-sprint `sN-<role>` specialists). Read the whole file, including Contracts, Open carryover and Lessons learned, before acting as that agent or delegating to it. Ignore the frontmatter; it is Claude Code's subagent header.
+- The Cursor chat is the lead. When Cursor runs parallel agents or background agents, brief each one with its `.claude/agents/` file plus the sprint requirements, give it exclusive owned paths, and keep one writer per file, as `docs/WORKFLOW.md` describes. Without parallel agents, work through the same owners in sequence and say so instead of claiming parallel execution.
+- Write knowledge back to the canonical component files and sprint records, never to this file.
+
+## Commits
+
+Use the user's Git identity. No AI co-author trailers or AI authorship lines in commits or pull requests.
