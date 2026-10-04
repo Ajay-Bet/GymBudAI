@@ -22,6 +22,15 @@ The "Lead" role in each sprint is the sprint chat itself, so it has no agent fil
 | `c-docs` | READMEs and reference guides in `docs/` (not sprint records) |
 | `c-validation` | `frontend/tests/**`, `backend/tests/**`; independent review |
 
+## Skills (shared)
+
+Skills live in `.claude/skills/` (Claude Code loads them directly). `.agents/skills/` holds symlinks to the same folders so Codex discovers them; edit only the `.claude/skills/` copy.
+
+| Skill | Use | Component |
+| --- | --- | --- |
+| `cv-mediapipe` | MediaPipe Tasks API reference and `scripts/mp.py` CLI, verified against 0.10.32 | `c-vision`, `c-ml` |
+| `mediapipe-workflow` | How GymBud wires MediaPipe (worker, asset pins, extraction parity, upgrades, checks) | `c-vision`, `c-ml` |
+
 ## Sprint agents
 
 | Agent | Sprint record | Role | Component | Status |
