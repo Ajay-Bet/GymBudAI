@@ -333,3 +333,43 @@ The user explicitly resumed implementation, including the interrupted video-to-m
 - Seven recordings still fail active-arm calibration or the side-view gate. The gates were not loosened. `rep-end-v2` can score human windows from side-on tracked angles without a calibration baseline. Live browser predictions still wait for a completed rep, which needs that baseline.
 - A three-way split produced no model. `ml/outputs/model/curl-pilot-1.json` is an experimental fixed-threshold swinging prototype. Its held-out precision is 0.143 and recall is 0.25. It is not a validated detector. Production rules stay disabled, and the form score stays unavailable.
 - On this resume, frontend `npm test` passed 265 logic tests and 15 UI tests, lint was clean, the production build succeeded, and backend pytest passed 97 tests. Those checks do not replace a live demo or reviewed cue evidence.
+
+## Sprint 4 close-out check — 2026-10-04 (this Mac, `main` at 4c65ea9)
+
+Ajay asked for Sprint 4 to be completed and confirmed done. The attached requirements docx matches `~/Downloads/GymBud_Master_and_Sprints_01-12/GymBud_Sprint_04_Real_Time_Form_Coaching.docx` and `sprint-4.md` word for word.
+
+### Checks run (lead, this session)
+
+| Check | Result |
+| --- | --- |
+| frontend `npm test` | 270/270 node tests (265 before this change + 5 new) and 15/15 Vitest UI tests |
+| frontend `npm run lint` | clean |
+| frontend `npm run build` | succeeds, vision asset SHA-256 verified |
+| backend `.venv/bin/python -m pytest -q` | 97 passed, one existing Starlette/httpx warning |
+
+### Exit criteria against the code
+
+| Item | State | Evidence |
+| --- | --- | --- |
+| GB 401 persistent detection | Implemented, synthetic only | `curlRules.js` gates, 400/500 ms persistence on timestamps; all three rules `enabled: false` (`curlRules.js:72,88,101`) |
+| GB 402 visual coaching | Implemented, DOM tests only | `CoachingPanel.jsx`; not yet seen with a real camera |
+| GB 403 speech control | Implemented, fake speech only | scheduler cooldowns/cancel tests; not yet heard in Chrome/Safari/iOS |
+| GB 404 set summary | Implemented and tested | `setSummary.js`, summary tests |
+| Three reviewed recordings, cue within persistence + delay | **Not met** | Tool now exists (below). No independently reviewed side-view recordings with a calibration hold. Seven of the eight existing clips never calibrate the active arm (`curl-ml-pilot-STATUS.md`) |
+| Isolated spikes produce no spoken correction | Synthetic pass only | `coaching-replay-eval.test.js` 200 ms spike; earlier seeds/fps sweep |
+| False cues per minute recorded, target chosen before review | **Not met** | Target not chosen (≤ 1/min is still a proposal); no measurement on reviewed clips |
+| Review demo (deviations, correct, mute, leave view, summary) | **Not met** | Needs Ajay on camera |
+
+### Code finished this session
+
+- `ml/coaching_eval.mjs`: replays an extracted pose cache through the camera page's tracking, biomechanics, auto-calibration, analyzer, issue tracker and scheduler (review mode, speech simulated on the frame clock) and scores cue delay against `issueStartMs` + persistence + 500 ms allowance, spoken-in-time count, false spoken cues per minute of calibrated `no-issue` time and of assessable time, labelled fraction and episodes. Acceptance eligibility needs a named reviewer, `independently-reviewed`, side view, calibrated time, and at least one issue and one `no-issue` window. Labels template `ml/coaching-labels.example.json`; usage in `docs/coaching-sprint-04.md`.
+- `frontend/tests/coaching-replay-eval.test.js`: 5 synthetic tests (speech clock, sustained swing cued in 400–900 ms with the repeat held by the 10 s cooldown, 200 ms spike silent, evaluation arithmetic and overlap/allowance rejection, large-lean limit).
+- Independent review (`s4-validation`, this session): 7 findings (4 medium, 3 low) on denominators, 0/0 passing, lenient eligibility, overlap double counting, swinging deadline, unchecked allowance, dropped interrupt output. All fixed and re-run.
+- Synthetic finding recorded, thresholds unchanged: a lean above about 17° moves the shoulder past the 0.3-torso reposition check, so calibration resets instead of a torso cue.
+
+### Decision needed and next actions
+
+- Ajay chooses the false-cue target before review (proposal: at most 1 false spoken correction per minute of accepted-form curling).
+- Ajay records at least three side-on clips with a 1 s relaxed hold, labels windows; a second person reviews them; run the tool.
+- Live demo and Chrome/Safari (iOS if possible) audio by ear, using the checklist in `docs/coaching-sprint-04.md`.
+- Sprint 4 is not marked complete. No rule is enabled. `s4-` agents stay Active. Not pushed.
