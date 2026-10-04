@@ -1,0 +1,139 @@
+{
+  "purpose": "synthetic arithmetic unit fixture only",
+  "model": {
+    "schemaVersion": "gymbud-logistic-1",
+    "modelVersion": "TEST-FIXTURE-ONLY",
+    "datasetVersion": "synthetic-unit-fixture",
+    "sourceRevision": "test-fixture",
+    "trained": true,
+    "experimental": true,
+    "evaluation": {
+      "status": "experimental",
+      "splitStrategy": "participant"
+    },
+    "featureSchemaVersion": "rep-end-v1",
+    "featureOrder": [
+      "durationMs",
+      "minFlexionDeg",
+      "maxFlexionDeg",
+      "romDeg",
+      "maxAbsTorsoDeg",
+      "maxAbsDriftDeg",
+      "medianAbsVelocityDegS",
+      "formCoverage"
+    ],
+    "units": [
+      "ms",
+      "deg",
+      "deg",
+      "deg",
+      "deg",
+      "deg",
+      "deg/s",
+      "fraction"
+    ],
+    "preprocessing": {
+      "mean": [
+        2000,
+        5,
+        120,
+        115,
+        2,
+        3,
+        50,
+        0.8
+      ],
+      "scale": [
+        500,
+        2,
+        10,
+        10,
+        3,
+        3,
+        20,
+        0.1
+      ]
+    },
+    "labels": [
+      {
+        "name": "swinging",
+        "issueType": null,
+        "coefficients": [
+          0.1,
+          -0.2,
+          0.3,
+          0.4,
+          0.5,
+          -0.6,
+          0.7,
+          0.8
+        ],
+        "intercept": -0.15,
+        "threshold": 0.55
+      }
+    ],
+    "supportedViews": [
+      "side"
+    ],
+    "knownLimitations": [
+      "Synthetic arithmetic test fixture; never evidence or shipped model."
+    ],
+    "sourceManifest": {
+      "revision": "synthetic-test-only",
+      "dirty": false,
+      "files": {}
+    },
+    "dependencies": {
+      "trainer": "arithmetic-synthetic-unit-fixture"
+    },
+    "missingDataHandling": "abstain",
+    "checksumSha256": "0f56a30ffd95b26dccebd1ecac6a47294fdddf236df32a80a9d0bc4506ffb164"
+  },
+  "fixtures": [
+    {
+      "features": [
+        2000,
+        5,
+        120,
+        115,
+        2,
+        3,
+        50,
+        0.8
+      ],
+      "scores": {
+        "swinging": 0.46257015465625045
+      }
+    },
+    {
+      "features": [
+        2500,
+        3,
+        125,
+        122,
+        8,
+        6,
+        70,
+        0.9
+      ],
+      "scores": {
+        "swinging": 0.9227277978633401
+      }
+    },
+    {
+      "features": [
+        1000,
+        7,
+        80,
+        70,
+        1,
+        2,
+        25,
+        0.5
+      ],
+      "scores": {
+        "swinging": 0.0011218354595763107
+      }
+    }
+  ]
+}
