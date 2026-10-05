@@ -11,10 +11,10 @@ This guide covers GymBud's accounts, saved workouts and workout history added in
 | Workout create, set submission, finalize, notes, list, detail with ownership checks and idempotent retries | Implemented. Tested locally (`backend/tests/test_workouts_api.py`, `test_auth_api.py`) |
 | 503 `database-unavailable` when PostgreSQL cannot be reached | Implemented. Checked locally with an unreachable database URL |
 | Browser sign-in, register, persisted save queue, save panel, history pages | Implemented in the React app. Independent frontend tests and the live browser walkthrough are tracked in the sprint record |
-| Backend CI with a PostgreSQL service (`.github/workflows/backend.yml`) | Written. It has not yet run on GitHub |
-| Staging Cloud SQL | **Provisioned and verified 2026-10-04** (`gymbud-510623:us-central1:gymbud-staging-pg`): migration, 251 backend tests, browser save/reload, replay, cross-user and outage checks passed through the Cloud SQL Auth Proxy. Cloud Run not deployed. See [Cloud SQL plan](#cloud-sql-plan-proposed) and `docs/sprints/sprint-5-STATUS.md` |
+| Backend CI with a PostgreSQL service (`.github/workflows/backend.yml`) | Written. Sprint 5 records successful Backend checks and Frontend checks on GitHub on 2026-10-05 at main revision `e8cd228`; no remote rerun in this audit |
+| Staging Cloud SQL | **Provisioned and verified 2026-10-04** (`gymbud-510623:us-central1:gymbud-staging-pg`): migration, 251 backend tests, browser save/reload, replay, cross-user and outage checks passed through the Cloud SQL Auth Proxy. Cloud Run not deployed. See [Cloud SQL setup](#cloud-sql-setup-and-planned-deployment) and `docs/sprints/sprint-5-STATUS.md` |
 
-The Sprint 5 exit criterion requires a save and reload against staging Cloud SQL. That part stays open until the real Cloud SQL path has been verified.
+The Sprint 5 record documents the staging save/reload exit criterion as met on 2026-10-04, including reopening the application, duplicate retries, cross-user denial and SQL-outage recovery. This guide reports saved evidence; it does not establish current cloud availability.
 
 ## Identity design (GB 501)
 
@@ -189,9 +189,11 @@ Server validation (422 on failure):
 
 - `summary` must declare `schemaVersion` `set-summary-1.0.0`, its `setId` must equal `clientSetId`, and `setIndex` (when present) must equal `setIndex`. `summary.exerciseId` must equal the workout's exercise.
 - `summary.units` must match the Sprint 4 units map for every key the server reads.
-- Version strings (`analyzerVersion`, `featureVersion`, `rulesVersion`, optional `feedbackVersion`) are 1–64 characters of lower-case letters, digits and `._-`. `side` is `left` or `right`; `mode` is `validated-only` or `review`.
+- Version strings (`analyzerVersion`, `featureVersion`, `rulesVersion`, optional `feedbackVersion`) are 1–64 characters of lower-case letters, digits and `._-`. `side` is `left` or `right`; `mode` is `validated-only` or `review`. New submissions must use a `view` in the exercise's configured `supportedViews` (`side` for dumbbell curls); identical saved replays retain their existing idempotent behavior.
 - `endedAt ≥ startedAt`. Rep and event ids are unique within the payload (up to 128 characters each), rep indices are unique, `endMs ≥ startMs`, `durationMs` equals `endMs − startMs` (within 1 ms), fractions lie in [0, 1], `trackingCoverage.assessableMs ≤ sessionMs`, and `repClientIds` refer to reps in the same payload. An issue-bearing rep must be analyzed and list its issue types.
 - Counts must agree with the rows: `completedReps` equals the number of reps, `analyzedReps` and `issueBearingReps` equal the flagged reps, `noIssueReps = analyzedReps − issueBearingReps`, `noIssueFraction = noIssueReps / analyzedReps` (or `null` when no rep was analyzed), and `episodeCountsByType` equals the assessed form events per type.
+- `summary.reps` and `summary.episodes` are required arrays and must describe the same IDs and shared fields as the top-level `reps` and `formEvents`; duplicate, missing or unknown IDs and contradictory fields are rejected. Event-to-completed-rep links must match `summary.reps[].episodeIds`, which may reference only assessed episodes. Each rep's `issueTypes` must equal its linked episode types, and `issueBearing` must equal `analyzed && episodeIds.length > 0`; an unanalyzed rep may still carry observed issues. Episode `attemptIds` may describe interrupted attempts and are not completed-rep foreign keys. Duplicated numeric fields must agree (JSON `1` and `1.0` are equivalent).
+- `trackingCoverage.fraction` must equal `assessableMs / sessionMs` within relative and absolute tolerances of `1e-9` when both durations are known and `sessionMs > 0`; otherwise the fraction must be `null`. Valid summaries are stored and hashed without rewriting their details (apart from dropping `cueLog`).
 - Numbers must be JSON numbers (no strings, booleans, NaN or Infinity). At most 500 reps and 2000 form events per set; body at most 512 KiB.
 
 Response **201** (stored) or **200** (identical replay), body `SetDetail`: the stored columns (`id`, `clientSetId`, `setIndex`, `side`, `view`, `mode`, `startedAt`, `endedAt`, `summarySchemaVersion`, `analyzerVersion`, `featureVersion`, `rulesVersion`, `feedbackVersion`, `completedReps`, `analyzedReps`, `issueBearingReps`, `noIssueReps`, `noIssueFraction`, `notAnalyzedReason`, `trackingAssessableMs`, `trackingSessionMs`, `trackingCoverage`, `interruptedAttempts`, `episodeCountsByType`, `createdAt`), the stored `summary`, and `reps` and `formEvents` with server `id`s (each form event lists `repClientIds`).
@@ -323,7 +325,7 @@ Not stored on the server:
 
 Form rules are still disabled in the default mode (no validated rule), so most saved sets have `analyzedReps` 0 and `notAnalyzedReason` `no-validated-rules`. Saved issue episodes from review mode are unvalidated detector output, not form assessments.
 
-## Cloud SQL plan (proposed)
+## Cloud SQL setup and planned deployment
 
 Staging was provisioned on 2026-10-04 in Ajay's project `gymbud-510623` (`us-central1`) by `infra/gcp/staging-cloudsql.sh`; what exists is listed at the top of [`infra/gcp/README.md`](../infra/gcp/README.md). The Cloud Run part below is still proposed (Sprint 12). In outline:
 
@@ -357,4 +359,4 @@ Sprint 6 builds history and progress views on top of this:
 - **Denominators and comparisons.** A no-issue percentage is `no_issue_reps / analyzed_reps`, labeled a detector summary, and undefined when `analyzed_reps` is 0. Compare only sets with the same `exercise_id`, `view`, `analyzer_version`, `feature_version` and `rules_version`, and show tracking coverage beside results. Show "insufficient data" when a trend is unsupported.
 - **Authenticated API.** Add `/api/analytics/me` with the same `Auth` dependency and owner filter as `/api/workouts`.
 - **Retry semantics** are as described above; new write endpoints should follow the same client-id pattern.
-- **Staging evidence** is still pending (Cloud SQL not provisioned). Record it in the Sprint 5 status file once the staging runbook has been run.
+- **Staging evidence** is recorded in the Sprint 5 status file: provisioning, migrations, 251 backend tests, browser save/reopen, replay, ownership and outage/retry checks passed on 2026-10-04. Cloud Run deployment remains Sprint 12 work; verify current staging availability before a new cloud run.

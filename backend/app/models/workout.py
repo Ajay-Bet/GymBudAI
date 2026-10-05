@@ -47,6 +47,7 @@ class WorkoutSession(Base):
         CheckConstraint("ended_at IS NULL OR ended_at >= started_at", name="ended_after_started"),
         CheckConstraint("notes IS NULL OR char_length(notes) <= 1000", name="notes_length"),
         Index("ix_workout_sessions_user_id_started_at", "user_id", "started_at"),
+        Index("ix_workout_sessions_user_started_id", "user_id", "started_at", "id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)

@@ -21,6 +21,7 @@ export default defineConfig({
       '/api/auth': { target: 'http://127.0.0.1:8080' },
       '/api/users': { target: 'http://127.0.0.1:8080' },
       '/api/exercises': { target: 'http://127.0.0.1:8080' },
+      '/api/analytics': { target: 'http://127.0.0.1:8080' },
       '/api/workouts': { target: 'http://127.0.0.1:8080' },
     },
   },

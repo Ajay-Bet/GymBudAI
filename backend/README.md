@@ -65,7 +65,7 @@ Browser requests use the same-origin Vite development proxy (`/api/health`, `/ap
 
 ## Database (Sprint 5)
 
-Accounts and workouts are stored in PostgreSQL through SQLAlchemy, with the schema managed by Alembic. This has been implemented and tested locally on the lead's Mac (Homebrew PostgreSQL 18.4). Cloud SQL staging is proposed and not provisioned; see [`infra/gcp/README.md`](../infra/gcp/README.md).
+Accounts and workouts are stored in PostgreSQL through SQLAlchemy, with the schema managed by Alembic. This has been implemented and tested locally on the lead's Mac (Homebrew PostgreSQL 18.4). The Sprint 5 record also documents staging Cloud SQL provisioning and verification on 2026-10-04; this is recorded evidence, not a live availability check. See [`infra/gcp/README.md`](../infra/gcp/README.md).
 
 ### Set up the local database
 
@@ -110,7 +110,7 @@ python -m pip install -r requirements.txt -r requirements-dev.txt
 python -m pytest -q
 ```
 
-pytest resets `gymbud_test` and runs `alembic upgrade head` on it once per run. If PostgreSQL is not running, the database tests fail with connection errors (they are not skipped); the coaching tests do not need a database. On 2026-10-04 the full suite passed: 251 tests (coaching, accounts, workouts, migrations, ownership, idempotency, database-unavailable), both on local PostgreSQL 18.4 and on staging Cloud SQL through the Auth Proxy. `.github/workflows/backend.yml` runs the same migration and tests against a throwaway `postgres:18` service in GitHub Actions; it has not run on GitHub yet.
+pytest resets `gymbud_test` and runs `alembic upgrade head` on it once per run. If PostgreSQL is not running, the database tests fail with connection errors (they are not skipped); the coaching tests do not need a database. On 2026-10-04 the full suite passed: 251 tests (coaching, accounts, workouts, migrations, ownership, idempotency, database-unavailable), both on local PostgreSQL 18.4 and on staging Cloud SQL through the Auth Proxy. `.github/workflows/backend.yml` runs the same migration and tests against a throwaway `postgres:18` service in GitHub Actions; the Sprint 5 record documents successful Backend checks and Frontend checks on GitHub on 2026-10-05 at main revision `e8cd228`. These results describe that revision, not every later commit.
 
 `backend/tests/test_migrations.py` checks upgrade, downgrade and upgrade again on an empty schema, that the models and migrations do not drift, and that the database itself enforces the constraints.
 

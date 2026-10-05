@@ -1,28 +1,21 @@
 /**
  * Workout history (Sprint 5, GB 504). Lists the signed-in user's saved workouts (newest first, paged)
- * and shows every saved summary field with units and denominators. Dates use the browser timezone.
+ * and shows every saved summary field with units and denominators. Dates use the selected IANA timezone shared with progress.
  * Missing values read "Not assessed", never 0 or "good form".
  */
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import gym_bud_logo from "../assets/gym-bud-logo.svg"
 import { useAuth } from "../auth/AuthContext"
 import { getWorkout, listWorkouts } from "../api/workouts"
+import { dateTime, selectedTimezone, saveTimezone } from "../api/analytics"
+import AnalyticsFilters from "./AnalyticsFilters"
 
 const NA = "Not assessed"
 const PAGE_SIZE = 20
 
 const isNum = (value) => typeof value === "number" && Number.isFinite(value)
-const browserTimeZone = () => {
-    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "local time" } catch { return "local time" }
-}
-
-function formatDate(iso) {
-    if (!iso) return NA
-    const date = new Date(iso)
-    if (Number.isNaN(date.getTime())) return NA
-    return new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }).format(date)
-}
+const formatDate = dateTime
 const formatMs = (ms) => (isNum(ms) ? `${(ms / 1000).toFixed(1)} s` : NA)
 const formatDeg = (deg) => (isNum(deg) ? `${deg.toFixed(1)}°` : NA)
 const formatPct = (fraction) => (isNum(fraction) ? `${(fraction * 100).toFixed(0)}%` : NA)
@@ -51,7 +44,7 @@ function CountsList({ counts, empty = "None" }) {
     )
 }
 
-function SetDetail({ set }) {
+function SetDetail({ set, timezone }) {
     const summary = set.summary ?? {}
     const completed = pick(set.completedReps, summary.completedReps)
     const analyzed = pick(set.analyzedReps, summary.analyzedReps)
@@ -70,7 +63,7 @@ function SetDetail({ set }) {
         <section className="rounded-xl border border-gray-200 bg-white p-6 flex flex-col gap-y-5" aria-label={`Set ${set.setIndex}`}>
             <header className="flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="text-lg font-bold">Set {text(set.setIndex)}</h3>
-                <span className="text-sm text-gray-500">{formatDate(set.startedAt)} to {formatDate(set.endedAt)}</span>
+                <span className="text-sm text-gray-500">{formatDate(set.startedAt, timezone)} to {formatDate(set.endedAt, timezone)}</span>
             </header>
 
             <dl className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -171,16 +164,16 @@ function SetDetail({ set }) {
     )
 }
 
-function WorkoutDetail({ workoutId, token }) {
+function WorkoutDetail({ workoutId, token, timezone }) {
     const [state, setState] = useState({ status: "loading", workout: null, error: null })
     const [attempt, setAttempt] = useState(0)
 
     useEffect(() => {
         const controller = new AbortController()
         getWorkout(workoutId, token, { signal: controller.signal })
-            .then((workout) => setState({ status: "ready", workout, error: null }))
+            .then((workout) => { if (!controller.signal.aborted) setState({ status: "ready", workout, error: null }) })
             .catch((error) => {
-                if (error?.code !== "aborted") setState({ status: "error", workout: null, error })
+                if (!controller.signal.aborted && error?.code !== "aborted") setState({ status: "error", workout: null, error })
             })
         return () => controller.abort()
     }, [workoutId, token, attempt])
@@ -203,8 +196,8 @@ function WorkoutDetail({ workoutId, token }) {
             <div className="rounded-xl border border-gray-200 bg-white p-6 flex flex-col gap-y-4">
                 <h2 className="text-2xl font-bold">{workout.exerciseId === "dumbbell-curl" ? "Dumbbell curl" : text(workout.exerciseId)}</h2>
                 <dl className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Field name="Started">{formatDate(workout.startedAt)}</Field>
-                    <Field name="Ended">{workout.endedAt ? formatDate(workout.endedAt) : "Not finished"}</Field>
+                    <Field name="Started">{formatDate(workout.startedAt, timezone)}</Field>
+                    <Field name="Ended">{workout.endedAt ? formatDate(workout.endedAt, timezone) : "Not finished"}</Field>
                     <Field name="Status">{workout.status === "finalized" ? "Finished" : "Open (not finalized)"}</Field>
                     <Field name="Recorded timezone">{text(workout.timezone)}</Field>
                     <Field name="Sets">{isNum(totals.sets) ? totals.sets : NA}</Field>
@@ -215,39 +208,44 @@ function WorkoutDetail({ workoutId, token }) {
                 </dl>
                 {workout.notes && <p className="text-sm"><span className="text-gray-500">Notes: </span>{workout.notes}</p>}
             </div>
-            {(workout.sets ?? []).map((set) => <SetDetail key={set.clientSetId ?? set.id ?? set.setIndex} set={set} />)}
+            {(workout.sets ?? []).map((set) => <SetDetail key={set.clientSetId ?? set.id ?? set.setIndex} set={set} timezone={timezone} />)}
             {!(workout.sets ?? []).length && <p className="text-sm text-gray-500">No sets saved in this workout.</p>}
         </article>
     )
 }
 
-function WorkoutList({ token }) {
+function WorkoutList({ token, timezone }) {
     const [items, setItems] = useState([])
-    const [nextBefore, setNextBefore] = useState(null)
+    const [nextCursor, setNextCursor] = useState(null)
     const [status, setStatus] = useState("loading")
     const [error, setError] = useState(null)
+    const pending = useRef(null)
 
-    const load = useCallback(async (before, signal) => {
+    const load = useCallback(async (cursor) => {
+        pending.current?.abort()
+        const controller = new AbortController()
+        pending.current = controller
+        const signal = controller.signal
         setStatus("loading")
         setError(null)
         try {
-            const page = await listWorkouts({ limit: PAGE_SIZE, before }, token, { signal })
-            setItems((current) => (before ? [...current, ...(page.items ?? [])] : page.items ?? []))
-            setNextBefore(page.nextBefore ?? null)
+            const page = await listWorkouts({ limit: PAGE_SIZE, cursor }, token, { signal })
+            if (signal.aborted) return
+            setItems((current) => (cursor ? [...current, ...(page.items ?? [])] : page.items ?? []))
+            setNextCursor(page.nextCursor ?? null)
             setStatus("ready")
         } catch (err) {
-            if (err?.code === "aborted") return
+            if (signal.aborted || err?.code === "aborted") return
             setError(err)
             setStatus("error")
         }
     }, [token])
 
     useEffect(() => {
-        const controller = new AbortController()
         // Initial page load; load() sets state only after the request settles.
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        load(null, controller.signal)
-        return () => controller.abort()
+        load(null)
+        return () => pending.current?.abort()
     }, [load])
 
     return (
@@ -263,7 +261,7 @@ function WorkoutList({ token }) {
                             <Link to={`/history/${encodeURIComponent(item.id)}`} className="block rounded-xl border border-gray-200 bg-white p-4 hover:border-green-600 transition">
                                 <div className="flex flex-wrap justify-between gap-2">
                                     <span className="font-semibold">{item.exerciseId === "dumbbell-curl" ? "Dumbbell curl" : text(item.exerciseId)}</span>
-                                    <span className="text-sm text-gray-500">{formatDate(item.startedAt)}</span>
+                                    <span className="text-sm text-gray-500">{formatDate(item.startedAt, timezone)}</span>
                                 </div>
                                 <div className="text-sm text-gray-600 mt-1">
                                     {isNum(totals.sets) ? `${totals.sets} ${totals.sets === 1 ? "set" : "sets"}` : NA}
@@ -280,11 +278,11 @@ function WorkoutList({ token }) {
             {status === "error" && (
                 <div role="alert" className="flex flex-col gap-2">
                     <p className="text-red-600">Could not load workouts: {error?.message}</p>
-                    <button type="button" onClick={() => load(items.length ? nextBefore : null)} className="self-start rounded-lg bg-green-600 px-4 py-2 text-white font-semibold">Retry</button>
+                    <button type="button" onClick={() => load(items.length ? nextCursor : null)} className="self-start rounded-lg bg-green-600 px-4 py-2 text-white font-semibold">Retry</button>
                 </div>
             )}
-            {status === "ready" && nextBefore && (
-                <button type="button" onClick={() => load(nextBefore)} className="self-start rounded-lg border border-gray-300 px-4 py-2 font-semibold hover:bg-gray-50">Load older workouts</button>
+            {status === "ready" && nextCursor && (
+                <button type="button" onClick={() => load(nextCursor)} className="self-start rounded-lg border border-gray-300 px-4 py-2 font-semibold hover:bg-gray-50">Load older workouts</button>
             )}
         </div>
     )
@@ -294,6 +292,8 @@ const HistoryPage = () => {
     const { status, token, user, logout } = useAuth()
     const { workoutId } = useParams()
     const navigate = useNavigate()
+    const [timezone, setTimezone] = useState(selectedTimezone)
+    function applyTimezone(value) { saveTimezone(value.timezone); setTimezone(value.timezone) }
     const here = workoutId ? `/history/${encodeURIComponent(workoutId)}` : "/history"
 
     async function handleSignOut() {
@@ -315,9 +315,10 @@ const HistoryPage = () => {
             <div className="mx-auto max-w-5xl px-6 py-8 flex flex-col gap-y-6">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <h1 className="text-3xl font-bold">Workout history</h1>
+                    <Link to="/progress" className="text-green-700 font-semibold hover:underline">Workout progress</Link>
                     {workoutId && <Link to="/history" className="text-green-600 font-semibold hover:underline">All workouts</Link>}
                 </div>
-                <p className="text-xs text-gray-500">Times shown in {browserTimeZone()}.</p>
+                <AnalyticsFilters value={{ timezone }} onApply={applyTimezone} dates={false} />
                 {status === "loading" && <p role="status">Checking sign-in…</p>}
                 {status === "signed-out" && (
                     <p>
@@ -325,8 +326,8 @@ const HistoryPage = () => {
                     </p>
                 )}
                 {status === "signed-in" && token && (workoutId
-                    ? <WorkoutDetail key={workoutId} workoutId={workoutId} token={token} />
-                    : <WorkoutList token={token} />)}
+                    ? <WorkoutDetail key={`${token}:${workoutId}`} workoutId={workoutId} token={token} timezone={timezone} />
+                    : <WorkoutList key={token} token={token} timezone={timezone} />)}
             </div>
         </main>
     )

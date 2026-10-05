@@ -19,10 +19,11 @@ export function finalizeWorkout(workoutId, endedAt, token, options = {}) {
   return apiRequest(`${workoutPath(workoutId)}/finalize`, { ...options, method: 'POST', body: { endedAt: iso }, token });
 }
 
-/** → `{items: WorkoutListItem[], nextBefore: string|null}`, newest first. */
-export function listWorkouts({ limit = 20, before = null } = {}, token, options = {}) {
+/** → `{items: WorkoutListItem[], nextCursor: string|null}`, newest startedAt then id first. before is legacy. */
+export function listWorkouts({ limit = 20, before = null, cursor = null } = {}, token, options = {}) {
   const params = new URLSearchParams({ limit: String(limit) });
-  if (before) params.set('before', before);
+  if (cursor) params.set('cursor', cursor);
+  else if (before) params.set('before', before);
   return apiRequest(`/api/workouts?${params}`, { ...options, token });
 }
 

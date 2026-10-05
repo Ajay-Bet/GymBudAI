@@ -122,10 +122,12 @@ def test_replay_treats_integral_floats_as_equal(api, headers, workout, clean_db)
     payload = make_set_payload()
     payload["summary"]["minFormCoverage"] = 1
     payload["reps"][0]["formCoverage"] = 1.0
+    payload["summary"]["reps"][0]["formCoverage"] = 1.0
     assert submit(api, headers, workout["id"], payload).status_code == 201
     replay = copy.deepcopy(payload)
     replay["summary"]["minFormCoverage"] = 1.0
     replay["reps"][0]["formCoverage"] = 1
+    replay["summary"]["reps"][0]["formCoverage"] = 1
     assert submit(api, headers, workout["id"], replay).status_code == 200
     assert counts(clean_db)["workout_sets"] == 1
 
@@ -389,4 +391,4 @@ def test_list_query_validation_is_422(api, headers, query):
 def test_list_only_shows_own_workouts(api, headers, user):
     create_workout(api, user["accessToken"])
     other = register_user(api)["accessToken"]
-    assert api.get("/api/workouts", headers=auth_header(other)).json() == {"items": [], "nextBefore": None}
+    assert api.get("/api/workouts", headers=auth_header(other)).json() == {"items": [], "nextBefore": None, "nextCursor": None}

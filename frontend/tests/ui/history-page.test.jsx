@@ -66,24 +66,24 @@ afterEach(cleanup);
 describe('HistoryPage', () => {
   it('lists workouts (dates, totals with denominators, status) and pages with Load older', async () => {
     mocks.listWorkouts
-      .mockResolvedValueOnce({ items: [listItem('w-2', '2026-10-02T09:00:00Z', 'open'), listItem('w-1', '2026-10-01T11:55:00Z')], nextBefore: '2026-10-01T11:55:00Z' })
-      .mockResolvedValueOnce({ items: [listItem('w-0', '2026-09-30T08:00:00Z')], nextBefore: null });
+      .mockResolvedValueOnce({ items: [listItem('w-2', '2026-10-02T09:00:00Z', 'open'), listItem('w-1', '2026-10-01T11:55:00Z')], nextCursor: '2026-10-01T11:55:00Z' })
+      .mockResolvedValueOnce({ items: [listItem('w-0', '2026-09-30T08:00:00Z')], nextCursor: null });
     renderAt('/history');
     await waitFor(() => expect(screen.getAllByText('Dumbbell curl')).toHaveLength(2));
-    expect(mocks.listWorkouts).toHaveBeenCalledWith({ limit: 20, before: null }, TOKEN, expect.anything());
+    expect(mocks.listWorkouts).toHaveBeenCalledWith({ limit: 20, cursor: null }, TOKEN, expect.anything());
     expect(screen.getAllByText(/1 set · 4 completed reps · 4 of 4 analyzed/)).toHaveLength(2);
     expect(screen.getByText(/Open$/)).toBeTruthy();
     expect(screen.getAllByText(/2026/).length).toBeGreaterThanOrEqual(2); // formatted dates rendered, page did not crash
     expect(screen.getByRole('link', { name: /Dumbbell curl.*Open/s }).getAttribute('href')).toBe('/history/w-2');
     fireEvent.click(screen.getByRole('button', { name: 'Load older workouts' }));
     await waitFor(() => expect(screen.getAllByText('Dumbbell curl')).toHaveLength(3));
-    expect(mocks.listWorkouts).toHaveBeenLastCalledWith({ limit: 20, before: '2026-10-01T11:55:00Z' }, TOKEN, expect.anything());
+    expect(mocks.listWorkouts).toHaveBeenLastCalledWith({ limit: 20, cursor: '2026-10-01T11:55:00Z' }, TOKEN, expect.anything());
     expect(screen.queryByRole('button', { name: 'Load older workouts' })).toBeNull();
   });
 
   it('empty list explains how to save; list error offers Retry', async () => {
     mocks.listWorkouts.mockRejectedValueOnce(new ApiError({ status: 503, code: 'database-unavailable', message: 'Saved workouts are temporarily unavailable. Try again.', retryable: true }))
-      .mockResolvedValueOnce({ items: [], nextBefore: null });
+      .mockResolvedValueOnce({ items: [], nextCursor: null });
     renderAt('/history');
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/temporarily unavailable/));
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
@@ -122,4 +122,14 @@ describe('HistoryPage', () => {
     expect(link.getAttribute('href')).toBe('/login?next=%2Fhistory%2Fw-1');
     expect(mocks.getWorkout).not.toHaveBeenCalled();
   });
+});
+
+it('uses the selected display timezone consistently for history detail', async () => {
+  localStorage.setItem('gymbud.analytics.timezone', 'America/New_York');
+  mocks.getWorkout.mockResolvedValueOnce(detail);
+  renderAt('/history/w-1');
+  await screen.findByRole('heading', {name:'Dumbbell curl'});
+  expect(screen.getByLabelText('Display timezone').value).toBe('America/New_York');
+  expect(document.body.textContent).toContain('7:55 AM EDT');
+  expect(document.body.textContent).not.toMatch(/Invalid Date|NaN/);
 });

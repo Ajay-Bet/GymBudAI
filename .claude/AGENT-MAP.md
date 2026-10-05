@@ -59,7 +59,11 @@ Skills live in `.claude/skills/` (Claude Code loads them directly). `.agents/ski
 | `s5-validation` | `docs/sprints/sprint-5-STATUS.md` | Independent validation specialist | `c-validation` | Retired |
 | `s5-docs` | `docs/sprints/sprint-5-STATUS.md` | Documentation specialist | `c-docs` | Retired |
 
-Sprints 6 and 10–12 have no sprint agents yet. The explicitly authorized curl ML pilot selects bounded parts of Sprints7–9 in this existing chat; it does not mark those full sprints complete.
+| `s6-backend` | `docs/sprints/sprint-6-STATUS.md` | Metrics and owned SQL queries | `c-backend` | Retired |
+| `s6-dashboard` | `docs/sprints/sprint-6-STATUS.md` | History and progress dashboard | `c-frontend-app` | Retired |
+| `s6-validation` | `docs/sprints/sprint-6-STATUS.md` | Independent analytics and UI validation | `c-validation` | Retired |
+
+Sprints 10–12 have no sprint agents yet. The explicitly authorized curl ML pilot selects bounded parts of Sprints7–9 in this existing chat; it does not mark those full sprints complete.
 
 
 ## Authorized curl ML pilot specialists (partial Sprints 7–9)

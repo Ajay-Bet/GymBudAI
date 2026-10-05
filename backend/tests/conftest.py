@@ -324,7 +324,7 @@ def make_set_payload(set_index: int = 1, rep_count: int = 3, mode: str = "valida
     form_events = [{"clientEventId": ep["id"], "issueType": ep["type"], "startMs": ep["startMs"], "endMs": ep["endMs"],
                     "peak": ep["peak"], "peakUnit": ep["unit"], "assessed": ep["assessed"],
                     "rulesVersion": ep["rulesVersion"],
-                    "repClientIds": [rep["id"] for rep in completed if overlaps(ep, rep)]}
+                    "repClientIds": [rep["id"] for rep in completed if ep["id"] in by_id[rep["id"]]["episodeIds"]]}
                    for ep in episodes]
 
     ended = ended_at or datetime.now(UTC) - timedelta(minutes=1)

@@ -1,0 +1,118 @@
+{
+  "environment": "Mac arm64 local FastAPI TestClient -> Cloud SQL Auth Proxy TCP5433 -> staging PG18 db-f1-micro us-central1",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "database": "gymbud_staging_test",
+  "seed": {
+    "ownedWorkouts": 1000,
+    "ownedSets": 1000,
+    "ownedReps": 3000
+  },
+  "timings": {
+    "historyMs": [
+      201.5934999944875,
+      174.8210410005413,
+      242.9123339970829
+    ],
+    "summaryMs": [
+      701.7936250049388,
+      590.0863749993732,
+      559.3028340081219
+    ]
+  },
+  "historyPlan": [
+    {
+      "Plan": {
+        "Node Type": "Limit",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Startup Cost": 0.28,
+        "Total Cost": 2.7,
+        "Plan Rows": 20,
+        "Plan Width": 24,
+        "Actual Startup Time": 0.032,
+        "Actual Total Time": 0.054,
+        "Actual Rows": 20.0,
+        "Actual Loops": 1,
+        "Disabled": false,
+        "Shared Hit Blocks": 22,
+        "Shared Read Blocks": 0,
+        "Shared Dirtied Blocks": 0,
+        "Shared Written Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Dirtied Blocks": 0,
+        "Local Written Blocks": 0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Index Only Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Scan Direction": "Backward",
+            "Index Name": "ix_workout_sessions_user_started_id",
+            "Relation Name": "workout_sessions",
+            "Alias": "workout_sessions",
+            "Startup Cost": 0.28,
+            "Total Cost": 121.63,
+            "Plan Rows": 999,
+            "Plan Width": 24,
+            "Actual Startup Time": 0.031,
+            "Actual Total Time": 0.052,
+            "Actual Rows": 20.0,
+            "Actual Loops": 1,
+            "Disabled": false,
+            "Index Cond": "((user_id = 'ceb78bc1-b5ee-488e-af0d-a876ff980435'::uuid) AND (started_at >= '2025-10-01 00:00:00+00'::timestamp with time zone) AND (started_at < '2025-11-01 00:00:00+00'::timestamp with time zone))",
+            "Rows Removed by Index Recheck": 0,
+            "Heap Fetches": 20,
+            "Index Searches": 1,
+            "Shared Hit Blocks": 22,
+            "Shared Read Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0
+          }
+        ]
+      },
+      "Planning": {
+        "Shared Hit Blocks": 45,
+        "Shared Read Blocks": 0,
+        "Shared Dirtied Blocks": 0,
+        "Shared Written Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Dirtied Blocks": 0,
+        "Local Written Blocks": 0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0
+      },
+      "Planning Time": 0.425,
+      "Triggers": [],
+      "Execution Time": 0.093
+    }
+  ],
+  "migrationCheck": "head upgrade and model-drift check passed inside rollback transaction",
+  "ownership": "second owner analytics zero; first owner workout404",
+  "scope": "synthetic no-rule measurements; one client, no deployed Cloud Run or browser/network load timing",
+  "preservation": {
+    "before": {
+      "migration": "0001_initial",
+      "workouts": 1,
+      "sets": 0,
+      "reps": 0
+    },
+    "after": {
+      "migration": "0001_initial",
+      "workouts": 1,
+      "sets": 0,
+      "reps": 0
+    },
+    "rollback": true
+  }
+}

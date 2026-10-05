@@ -9,6 +9,8 @@ the unique constraints is re-read and compared, so a race never returns 500 or d
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import json
 import uuid
@@ -16,7 +18,7 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import func, insert, select
+from sqlalchemy import func, insert, select, tuple_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -142,6 +144,9 @@ def submit_set(db: Session, user_id: uuid.UUID, workout_id: uuid.UUID, data: Wor
     summary = data.summary
     if summary.get("exerciseId") != workout.exercise_id:
         raise validation_error(["body", "summary", "exerciseId"], "summary.exerciseId must equal the workout's exerciseId")
+    exercise = db.get(Exercise, workout.exercise_id)
+    if exercise is None or summary["view"] not in exercise.supported_views:
+        raise validation_error(["body", "summary", "view"], "summary.view must be supported by the workout's exercise")
     if db.scalar(select(WorkoutSet.id).where(WorkoutSet.session_id == workout.id, WorkoutSet.set_index == data.set_index)):
         raise _conflict("Another set of this workout already uses this setIndex.")
 
@@ -232,20 +237,6 @@ def update_notes(db: Session, user_id: uuid.UUID, workout_id: uuid.UUID, notes: 
 
 # ---------- read ----------
 
-def _totals_query():
-    return (
-        select(
-            WorkoutSet.session_id.label("session_id"),
-            func.count(WorkoutSet.id).label("sets"),
-            func.coalesce(func.sum(WorkoutSet.completed_reps), 0).label("completed_reps"),
-            func.coalesce(func.sum(WorkoutSet.analyzed_reps), 0).label("analyzed_reps"),
-            func.coalesce(func.sum(WorkoutSet.issue_bearing_reps), 0).label("issue_bearing_reps"),
-        )
-        .group_by(WorkoutSet.session_id)
-        .subquery()
-    )
-
-
 def _totals(row: Any) -> Totals:
     return Totals(
         sets=row.sets or 0, completed_reps=row.completed_reps or 0,
@@ -260,22 +251,53 @@ def _list_item(workout: WorkoutSession, totals: Totals) -> dict[str, Any]:
     }
 
 
-def list_workouts(db: Session, user_id: uuid.UUID, limit: int, before: datetime | None) -> WorkoutList:
-    totals = _totals_query()
-    query = (
-        select(WorkoutSession, totals.c.sets, totals.c.completed_reps, totals.c.analyzed_reps, totals.c.issue_bearing_reps)
-        .outerjoin(totals, totals.c.session_id == WorkoutSession.id)
-        .where(WorkoutSession.user_id == user_id)
-        .order_by(WorkoutSession.started_at.desc(), WorkoutSession.id.desc())
-        .limit(limit + 1)
-    )
-    if before is not None:
+def _encode_cursor(workout: WorkoutSession) -> str:
+    raw = json.dumps([workout.started_at.isoformat(), str(workout.id)], separators=(",", ":"))
+    return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
+
+
+def _decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
+    try:
+        if len(cursor) > 512:
+            raise ValueError
+        data = json.loads(base64.b64decode(cursor + "=" * (-len(cursor) % 4), altchars=b"-_", validate=True))
+        if not isinstance(data, list) or len(data) != 2:
+            raise ValueError
+        timestamp = datetime.fromisoformat(data[0])
+        if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+            raise ValueError
+        return timestamp.astimezone(UTC), uuid.UUID(data[1])
+    except (ValueError, TypeError, AttributeError, OverflowError, UnicodeDecodeError, binascii.Error):
+        raise api_error(422, "invalid-cursor", "Choose a valid workout history cursor.") from None
+
+
+def list_workouts(db: Session, user_id: uuid.UUID, limit: int, before: datetime | None,
+                  cursor: str | None = None) -> WorkoutList:
+    if before is not None and cursor is not None:
+        raise api_error(422, "invalid-cursor", "Use cursor or before, not both.")
+    query = select(WorkoutSession).where(WorkoutSession.user_id == user_id)
+    if cursor is not None:
+        timestamp, workout_id = _decode_cursor(cursor)
+        query = query.where(tuple_(WorkoutSession.started_at, WorkoutSession.id) < tuple_(timestamp, workout_id))
+    elif before is not None:
         query = query.where(WorkoutSession.started_at < before)
-    rows = db.execute(query).all()
+    rows = list(db.scalars(query.order_by(WorkoutSession.started_at.desc(), WorkoutSession.id.desc()).limit(limit+1)))
     more = len(rows) > limit
     rows = rows[:limit]
-    items = [WorkoutListItem(**_list_item(row[0], _totals(row))) for row in rows]
-    return WorkoutList(items=items, next_before=rows[-1][0].started_at if more and rows else None)
+    # Aggregate only this owned page, rather than every user's complete history.
+    totals_by_id = {}
+    if rows:
+        totals_rows = db.execute(select(
+            WorkoutSet.session_id, func.count(WorkoutSet.id).label("sets"),
+            func.sum(WorkoutSet.completed_reps).label("completed_reps"),
+            func.sum(WorkoutSet.analyzed_reps).label("analyzed_reps"),
+            func.sum(WorkoutSet.issue_bearing_reps).label("issue_bearing_reps"),
+        ).where(WorkoutSet.session_id.in_([w.id for w in rows])).group_by(WorkoutSet.session_id))
+        totals_by_id = {row.session_id: _totals(row) for row in totals_rows}
+    items = [WorkoutListItem(**_list_item(w, totals_by_id.get(w.id, Totals(
+        sets=0, completed_reps=0, analyzed_reps=0, issue_bearing_reps=0)))) for w in rows]
+    return WorkoutList(items=items, next_before=rows[-1].started_at if more and rows else None,
+                       next_cursor=_encode_cursor(rows[-1]) if more and rows else None)
 
 
 def workout_detail(db: Session, user_id: uuid.UUID, workout_id: uuid.UUID) -> WorkoutDetail:

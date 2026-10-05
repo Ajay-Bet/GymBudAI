@@ -92,6 +92,29 @@ class InterruptedAttemptsIn(_SummaryModel):
     by_reason: dict[ShortText, Count]
 
 
+class SummaryRepIn(_SummaryModel):
+    id: ClientId
+    index: Annotated[StrictInt, Field(ge=1)]
+    start_ms: Number
+    end_ms: Number
+    form_coverage: Fraction | None
+    analyzed: StrictBool
+    issue_bearing: StrictBool
+    issue_types: Annotated[list[Slug], Field(max_length=16)]
+    episode_ids: Annotated[list[ClientId], Field(max_length=MAX_EVENTS_PER_SET)]
+
+
+class SummaryEpisodeIn(_SummaryModel):
+    id: ClientId
+    type: Slug
+    start_ms: Number
+    end_ms: Number | None
+    peak: Number | None
+    unit: Annotated[str, StringConstraints(min_length=1, max_length=32)] | None
+    assessed: StrictBool
+    rules_version: VersionStr | None = None
+
+
 class SummaryIn(_SummaryModel):
     """The keys of `set-summary-1.0.0` the server reads and stores in columns. Others are kept as sent."""
 
@@ -106,6 +129,8 @@ class SummaryIn(_SummaryModel):
     rules_version: VersionStr
     feedback_version: VersionStr | None
     mode: Literal["validated-only", "review"]
+    assessed_rule_types: Annotated[list[ShortText], Field(max_length=64)] | None = None
+    min_form_coverage: Fraction | None = None
     completed_reps: Count
     analyzed_reps: Count
     issue_bearing_reps: Count
@@ -116,6 +141,8 @@ class SummaryIn(_SummaryModel):
     interrupted_attempts: InterruptedAttemptsIn
     episode_counts_by_type: dict[ShortText, Count]
     units: dict[str, str]
+    reps: Annotated[list[SummaryRepIn], Field(max_length=MAX_REPS_PER_SET)]
+    episodes: Annotated[list[SummaryEpisodeIn], Field(max_length=MAX_EVENTS_PER_SET)]
 
 
 class RepIn(InModel):
@@ -219,6 +246,59 @@ class WorkoutSetIn(InModel):
         if any(rid not in known for event in self.form_events for rid in event.rep_client_ids):
             problems.append("formEvents[].repClientIds must reference reps in this payload")
 
+        # Validate the duplicated representation without rewriting the original summary:
+        # valid historical payloads must retain their replay hash and unknown summary fields.
+        summary_rep_ids = [rep.id for rep in summary.reps]
+        summary_event_ids = [episode.id for episode in summary.episodes]
+        if len(set(summary_rep_ids)) != len(summary_rep_ids):
+            problems.append("summary.reps[].id must be unique")
+        if len(set(summary_event_ids)) != len(summary_event_ids):
+            problems.append("summary.episodes[].id must be unique")
+        if set(summary_rep_ids) != known:
+            problems.append("summary.reps must contain exactly the payload's reps")
+        if set(summary_event_ids) != set(event_ids):
+            problems.append("summary.episodes must contain exactly the payload's formEvents")
+        reps_by_id = {rep.client_rep_id: rep for rep in self.reps}
+        events_by_id = {event.client_event_id: event for event in self.form_events}
+        episodes_by_id = {episode.id: episode for episode in summary.episodes}
+        linked_reps: dict[str, set[str]] = {event_id: set() for event_id in event_ids}
+        for rep in summary.reps:
+            if len(set(rep.issue_types)) != len(rep.issue_types):
+                problems.append(f"summary rep {rep.id}: issueTypes must be unique")
+            if len(set(rep.episode_ids)) != len(rep.episode_ids):
+                problems.append(f"summary rep {rep.id}: episodeIds must be unique")
+            if not set(rep.episode_ids).issubset(events_by_id):
+                problems.append(f"summary rep {rep.id}: episodeIds must reference episodes in this payload")
+            linked_episodes = [episodes_by_id[event_id] for event_id in rep.episode_ids if event_id in episodes_by_id]
+            if any(not episode.assessed for episode in linked_episodes):
+                problems.append(f"summary rep {rep.id}: episodeIds must reference assessed episodes")
+            if set(rep.issue_types) != {episode.type for episode in linked_episodes}:
+                problems.append(f"summary rep {rep.id}: issueTypes must match linked episodes")
+            if rep.issue_bearing != (rep.analyzed and bool(rep.episode_ids)):
+                problems.append(f"summary rep {rep.id}: issueBearing must match analyzed episode evidence")
+            for event_id in rep.episode_ids:
+                if event_id in linked_reps:
+                    linked_reps[event_id].add(rep.id)
+            stored_rep = reps_by_id.get(rep.id)
+            if stored_rep is not None:
+                fields = ("start_ms", "end_ms", "form_coverage", "analyzed", "issue_bearing")
+                if (rep.index != stored_rep.rep_index
+                        or any(getattr(rep, field) != getattr(stored_rep, field) for field in fields)
+                        or set(rep.issue_types) != set(stored_rep.issue_types)):
+                    problems.append(f"summary rep {rep.id} must match its payload rep")
+        for episode in summary.episodes:
+            event = events_by_id.get(episode.id)
+            if event is not None:
+                fields = ("start_ms", "end_ms", "peak", "assessed")
+                if (episode.type != event.issue_type or episode.unit != event.peak_unit
+                        or (episode.rules_version or summary.rules_version) != event.rules_version
+                        or any(getattr(episode, field) != getattr(event, field) for field in fields)):
+                    problems.append(f"summary episode {episode.id} must match its payload formEvent")
+                if linked_reps[episode.id] != set(event.rep_client_ids):
+                    problems.append(f"formEvent {episode.id}: repClientIds must match summary reps' episodeIds")
+        # Episode attemptIds may refer to partial attempts with no completed rep row;
+        # only summary reps' explicit episodeIds define persisted event-to-rep links.
+
         analyzed = sum(rep.analyzed for rep in self.reps)
         issue_bearing = sum(rep.issue_bearing for rep in self.reps)
         if summary.completed_reps != len(self.reps):
@@ -239,6 +319,14 @@ class WorkoutSetIn(InModel):
         coverage = summary.tracking_coverage
         if coverage.assessable_ms is not None and coverage.session_ms is not None and coverage.assessable_ms > coverage.session_ms:
             problems.append("summary.trackingCoverage.assessableMs must be <= sessionMs")
+        if coverage.assessable_ms is not None and coverage.session_ms is not None and coverage.session_ms > 0:
+            expected_fraction = coverage.assessable_ms / coverage.session_ms
+            if coverage.fraction is None or not math.isclose(
+                coverage.fraction, expected_fraction, rel_tol=1e-9, abs_tol=1e-9
+            ):
+                problems.append("summary.trackingCoverage.fraction must equal assessableMs / sessionMs")
+        elif coverage.fraction is not None:
+            problems.append("summary.trackingCoverage.fraction must be null when coverage cannot be calculated")
         assessed_counts = Counter(event.issue_type for event in self.form_events if event.assessed)
         for issue_type in set(assessed_counts) | set(summary.episode_counts_by_type):
             if assessed_counts.get(issue_type, 0) != summary.episode_counts_by_type.get(issue_type, 0):
@@ -343,3 +431,4 @@ class WorkoutDetail(WorkoutListItem):
 class WorkoutList(OutModel):
     items: list[WorkoutListItem]
     next_before: datetime | None
+    next_cursor: str | None = None

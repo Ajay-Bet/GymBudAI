@@ -59,8 +59,14 @@ Sprint 5 adds sign-in, workout saving and history. It needs FastAPI running with
 - **Save a set.** After **Finish set** on the camera page, the **Save workout** panel lists each finished set. Signed in, it saves automatically and shows **Saving…**, **Saved** (with **View in history**) or **Save failed** with the reason, **Retry** and **Dismiss**. Signed out, it shows **Sign in to save** and keeps the summaries in this browser until you sign in. Failed and unsent summaries survive a reload. **Dismiss** asks before discarding a summary.
 - **Retry is safe.** Each set keeps the same ids and payload on every retry, so a repeat never creates duplicate sets or reps on the server.
 - **Finish workout** closes the workout on the server once all of its sets are saved. A workout is all the sets finished on the camera page since it loaded or since the last **Finish workout**.
-- **History** at `/history` lists your saved workouts, newest first, with dates in your browser's timezone. `/history/:workoutId` shows every saved summary field with units and denominators; missing values read "Not assessed".
+- **History** at `/history` lists your saved workouts, newest first, with dates in the selected display timezone (defaults to your browser's timezone). `/history/:workoutId` shows every saved summary field with units and denominators; missing values read "Not assessed".
 
 Only finished-set summaries are sent: counts, tracking coverage, rep measurements and detected episodes. Camera frames, pose landmarks and the cue log stay on this device. The sign-in token is kept in `localStorage` (`gymbud.auth`) and unsent summaries in `localStorage` (`gymbud.pendingSaves.v1`); anyone using the same browser profile can read them. See the persistence guide for the XSS trade-off of this choice.
 
 Code: transport `src/api/http.js`, `auth.js`, `workouts.js`; payload builder `src/api/workoutPayload.js`; save queue `src/api/saveQueue.js`; sign-in state `src/auth/AuthContext.jsx`; save panel `src/components/SaveWorkoutPanel.jsx`; history `src/pages/HistoryPage.jsx`.
+
+## Workout analytics and progress
+
+Sprint 6 adds `/progress`, linked from history. Select an inclusive date range (up to 366 days) and an IANA display timezone. Finished workouts with saved sets appear in separate configuration groups; ROM and issue-frequency charts include text tables, observation counts and coverage completeness. Missing measurements remain unavailable; detector percentages use analyzed reps and are not validated form scores. History now uses a stable timestamp-and-ID cursor, including workouts with tied start times.
+
+Run `alembic upgrade head` against the intended application database and restart FastAPI before using the new analytics routes; migration `0002_analytics_index` adds the owner/time/ID index. This sprint's staging benchmark used rollback-isolated test data and did not migrate or change the staging application database. Definitions, comparison limits and evidence: [analytics guide](../docs/analytics-sprint-06.md), [Sprint 6 handoff](../docs/sprints/sprint-6-STATUS.md).

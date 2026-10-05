@@ -48,12 +48,22 @@ def test_upgrade_downgrade_upgrade_and_no_drift(isolated_schema):
     command.upgrade(config, "head")
     tables, version, exercises, checks = snapshot()
     assert TABLES <= tables
-    assert version == "0001_initial"
+    assert version == "0002_analytics_index"
     assert [tuple(row) for row in exercises] == [("dumbbell-curl", "Dumbbell curl", ["side"], "curl-1.1.0", True)]
     for name in ("ck_users_email_lower_case", "ck_workout_sessions_status_allowed",
                  "ck_workout_sets_no_issue_consistent", "ck_workout_sets_analyzed_le_completed",
                  "ck_workout_sets_issue_bearing_le_analyzed", "ck_reps_end_after_start"):
         assert name in checks
+
+    command.downgrade(config, "0001_initial")
+    engine = create_engine(TEST_DATABASE_URL, poolclass=NullPool)
+    try:
+        with engine.connect() as connection:
+            indexes = {i["name"] for i in inspect(connection).get_indexes("workout_sessions")}
+            assert "ix_workout_sessions_user_started_id" not in indexes
+            assert "ix_workout_sessions_user_id_started_at" in indexes
+    finally:
+        engine.dispose()
 
     command.downgrade(config, "base")
     tables, version, _, _ = snapshot()

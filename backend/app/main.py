@@ -15,6 +15,7 @@ from sqlalchemy import Engine
 from sqlalchemy.exc import DBAPIError, InterfaceError, OperationalError
 from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 
+from app.api.analytics import router as analytics_router
 from app.api.auth import router as auth_router
 from app.api.coach import router as coach_router
 from app.api.exercises import router as exercises_router
@@ -100,6 +101,7 @@ def create_app(
     application.include_router(users_router)
     application.include_router(exercises_router)
     application.include_router(workouts_router)
+    application.include_router(analytics_router)
     return application
 
 

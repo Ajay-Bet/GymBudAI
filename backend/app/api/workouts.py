@@ -43,8 +43,9 @@ def list_workouts(
     db: DbSession,
     limit: Annotated[int, Query(ge=1, le=service.LIST_LIMIT_MAX)] = 20,
     before: Annotated[AwareDatetime | None, Query()] = None,
+    cursor: Annotated[str | None, Query(min_length=1, max_length=512)] = None,
 ) -> WorkoutList:
-    return service.list_workouts(db, current.user.id, limit, before)
+    return service.list_workouts(db, current.user.id, limit, before, cursor)
 
 
 @router.get("/{workout_id}", response_model=WorkoutDetail, responses=_ERRORS)

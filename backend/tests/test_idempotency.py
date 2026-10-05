@@ -194,7 +194,7 @@ def test_concurrent_different_sets_same_index_one_wins(make_api, clean_db):
     lambda p: p["reps"][0].update(romDeg=p["reps"][0]["romDeg"] + 1),
     lambda p: p.update(endedAt=iso(datetime.fromisoformat(p["endedAt"].replace("Z", "+00:00")) + timedelta(seconds=1))),
     lambda p: p["summary"].update(featureVersion="9.9.9"),
-    lambda p: p["formEvents"][0].update(peak=99.0),
+    lambda p: (p["formEvents"][0].update(peak=99.0), p["summary"]["episodes"][0].update(peak=99.0)),
 ])
 def test_conflicting_replay_is_409_and_changes_nothing(api, headers, clean_db, change):
     workout = workout_body()
