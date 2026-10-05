@@ -52,8 +52,14 @@ Skills live in `.claude/skills/` (Claude Code loads them directly). `.agents/ski
 | `s4-validation` | `docs/sprints/sprint-4-STATUS.md` | Independent validation specialist | `c-validation` | Retired |
 | `s4-biomechanics` | `docs/sprints/sprint-4-STATUS.md` | Calibration specialist (extension) | `c-biomechanics` | Retired |
 | `s4-backend` | `docs/sprints/sprint-4-STATUS.md` | Coaching proxy specialist (extension) | `c-backend`, `c-frontend-app` (`api/coach.js`) | Retired |
+| `s5-backend` | `docs/sprints/sprint-5-STATUS.md` | Accounts and persistence API specialist | `c-backend` | Retired |
+| `s5-frontend` | `docs/sprints/sprint-5-STATUS.md` | Auth, API client, save queue and history specialist | `c-frontend-app` | Retired |
+| `s5-workout-ui` | `docs/sprints/sprint-5-STATUS.md` | Save panel and CameraView save wiring specialist | `c-camera-ui` | Retired |
+| `s5-infra` | `docs/sprints/sprint-5-STATUS.md` | Backend CI, local DB and proposed Cloud SQL config | `c-infra` | Retired |
+| `s5-validation` | `docs/sprints/sprint-5-STATUS.md` | Independent validation specialist | `c-validation` | Retired |
+| `s5-docs` | `docs/sprints/sprint-5-STATUS.md` | Documentation specialist | `c-docs` | Retired |
 
-Sprints5–6 and10–12 have no sprint agents yet. The explicitly authorized curl ML pilot selects bounded parts of Sprints7–9 in this existing chat; it does not mark those full sprints complete.
+Sprints 6 and 10–12 have no sprint agents yet. The explicitly authorized curl ML pilot selects bounded parts of Sprints7–9 in this existing chat; it does not mark those full sprints complete.
 
 
 ## Authorized curl ML pilot specialists (partial Sprints 7–9)

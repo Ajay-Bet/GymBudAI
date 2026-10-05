@@ -40,3 +40,9 @@ Update this file in the same change whenever any of these happen to this compone
 
 - Coaching guide now distinguishes baseline history from integrated extension (Finish vs Stop, calibration1.2.0, score formula/gates, missing feature coverage, text/AI voice/approved wording, bounds/cancellation and pending browser checklist). Frontend/backend READMEs explain local startup and server-only secret configuration; official API references are linked.
 - Existing curl videos are available per user, with independent review pending; previous absence statements are historical. Full sprint acceptance remains pending recordings/live demo/audio/physical evidence. Knowledge writeback: sprint lead from component specialists/reviewer.
+
+## Sprint 5 — 2026-10-04 (s5-docs)
+
+- **Owns (added):** `docs/persistence-sprint-05.md` (identity design, API reference with examples captured from real responses, data model, idempotency, save queue, stored vs not stored, Cloud SQL pointer, accepted deviations, Sprint 6 handoff). READMEs cover local PostgreSQL, `alembic upgrade head`, DB env vars, Postgres-backed tests, sign-in, saving and history.
+- **Open carryover:** refresh test counts and staging evidence after Sprint 5 close; record the first CI result.
+- **Lessons learned:** capture API examples from the running app, not the contract (it surfaced unstated behaviour); check sibling docs for statements made stale by user decisions.

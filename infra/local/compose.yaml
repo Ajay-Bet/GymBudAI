@@ -1,0 +1,28 @@
+# OPTIONAL local PostgreSQL for teammates who use Docker.
+# Not run on the lead's Mac (Docker is not installed there; it uses Homebrew PostgreSQL 18
+# with infra/local/setup-postgres.sh). Local development only: trust auth on 127.0.0.1.
+#
+#   docker compose -f infra/local/compose.yaml up -d
+#   docker compose -f infra/local/compose.yaml exec postgres createdb -U gymbud gymbud_test
+#
+# Stop a Homebrew/system PostgreSQL first if it already uses port 5432.
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: gymbud
+      POSTGRES_DB: gymbud_dev
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # postgres:18 images keep data under /var/lib/postgresql (versioned subdirectory).
+      - gymbud-pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gymbud -d gymbud_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  gymbud-pgdata:

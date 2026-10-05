@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import login_bg from "../assets/hero-page-bg.png";
 import gym_bud_logo from "../assets/gym-bud-logo.svg";
 import CaptchaPlaceholder from "../components/CaptchaPlaceholder";
+import { useAuth } from "../auth/AuthContext";
+import { safeNextPath } from "../auth/nextPath";
 
 const LoginPage = () => {
 
@@ -12,9 +14,12 @@ const LoginPage = () => {
     });
 
     const [message, setMessage] = useState("");
-    const [profile, setProfile] = useState("");
-    
+    const [submitting, setSubmitting] = useState(false);
+
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const nextPath = safeNextPath(searchParams.get("next"));
+    const { login } = useAuth();
 
     function handleChange(e) {
         const { name, value } = e.target;
@@ -27,32 +32,24 @@ const LoginPage = () => {
 
     async function handleSubmit(e) {
         e.preventDefault();
-
-        console.log("Submitting:", loginData); // debug
-
+        if (submitting) return;
+        if (!loginData.email.trim() || !loginData.password) {
+            setMessage("Enter your email address and password.");
+            return;
+        }
+        setSubmitting(true);
+        setMessage("");
         try {
-            const res = await fetch("http://localhost:8080/users/login", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(loginData)
-            });
-
-            const data = await res.json();
-
-            if (res.ok) {
-                setMessage("Login successful");
-                localStorage.setItem("token", data.token); // Storing JWT
-                console.log("TOKEN", data.token);
-                navigate("/");
-            } else {
-                setMessage(data.message || "Login failed");
-            }
-
+            await login(loginData.email.trim(), loginData.password);
+            navigate(nextPath, { replace: true });
         } catch (err) {
-            console.error("FULL ERROR:", err);
-            setMessage(err.message);
+            setMessage(err?.code === "invalid-credentials"
+                ? "Email or password is incorrect."
+                : err?.code === "rate-limited"
+                    ? "Too many sign-in attempts. Wait a minute, then try again."
+                    : err?.message || "Login failed.");
+        } finally {
+            setSubmitting(false);
         }
     }
 
@@ -97,33 +94,6 @@ const LoginPage = () => {
                     onSubmit={handleSubmit}
                     className="flex flex-col gap-y-6 w-[400px]"
                 >
-                    {/* Test Profile Button */}
-                    <button
-                        type="button"
-                        onClick={async () => {
-                            try {
-                                const res = await fetch("http://localhost:8080/users/profile", {
-                                    headers: {
-                                        Authorization: "Bearer " + localStorage.getItem("token")
-                                    }
-                                });
-
-                                const data = await res.text();
-                                setProfile(data);
-                            } catch (err) {
-                                console.error(err);
-                            }
-                        }}
-                        className="px-4 py-2 bg-blue-500 text-white rounded"
-                    >
-                        Test Profile
-                    </button>
-
-                    {/* Show profile */}
-                    {profile && (
-                        <p className="text-center text-sm text-gray-700">{profile}</p>
-                    )}
-
                     <h1 className="text-left text-xl font-bold">
                         Member Login
                     </h1>
@@ -131,6 +101,8 @@ const LoginPage = () => {
                     <input
                         type="email"
                         name="email"
+                        autoComplete="email"
+                        aria-label="Email Address"
                         value={loginData.email}
                         onChange={handleChange}
                         placeholder="Email Address"
@@ -140,29 +112,37 @@ const LoginPage = () => {
                     <input
                         type="password"
                         name="password"
+                        autoComplete="current-password"
+                        aria-label="Password"
                         value={loginData.password}
                         onChange={handleChange}
                         placeholder="Password"
                         className="focus:outline-none focus:ring-2 focus:ring-green-600 bg-[#f9f9fa] rounded-lg px-4 py-4 w-full"
                     />
 
-                    <a href="#" className="hover:underline text-right text-green-600 font-light tracking-wide -mt-2 text-sm">
+                    <a href="#" title="Password reset is not available yet. Contact the GymBud team." className="hover:underline text-right text-green-600 font-light tracking-wide -mt-2 text-sm">
                         Forgot password?
                     </a>
 
-                    <CaptchaPlaceholder onVerify={(verified) => console.log("captcha:", verified)} />
+                    <CaptchaPlaceholder />
 
                     <button
                         type="submit"
-                        className="px-4 py-4 bg-green-600 hover:bg-green-700 transition text-white rounded-xl w-full font-bold"
+                        disabled={submitting}
+                        className="px-4 py-4 bg-green-600 hover:bg-green-700 transition text-white rounded-xl w-full font-bold disabled:opacity-60"
                     >
-                        Log In
+                        {submitting ? "Logging in…" : "Log In"}
                     </button>
 
                     {/* message display */}
                     {message && (
-                        <p className="text-sm text-center text-red-500">{message}</p>
+                        <p role="alert" className="text-sm text-center text-red-500">{message}</p>
                     )}
+
+                    <p className="text-center text-sm text-gray-500">
+                        New to GymBud?{" "}
+                        <Link to={`/register?next=${encodeURIComponent(nextPath)}`} className="text-green-600 font-semibold hover:underline">Create an account</Link>
+                    </p>
 
                 </form>
                 {/* ✅ FORM END */}

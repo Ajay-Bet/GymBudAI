@@ -1,8 +1,49 @@
 import login_bg from "../assets/hero-page-bg.png"
 import gym_bud_logo from "../assets/gym-bud-logo.svg"
 import CaptchaPlaceholder from "../components/CaptchaPlaceholder"
+import { useState } from "react"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
+import { useAuth } from "../auth/AuthContext"
+import { safeNextPath } from "../auth/nextPath"
+
+const inputClass = "focus:outline-none focus:ring-2 focus:ring-green-600 bg-[#f9f9fa] rounded-lg px-4 py-3 w-full text-sm"
 
 const RegisterPage = () => {
+    const [form, setForm] = useState({ firstName: "", lastName: "", email: "", password: "", confirm: "" })
+    const [message, setMessage] = useState("")
+    const [submitting, setSubmitting] = useState(false)
+    const navigate = useNavigate()
+    const [searchParams] = useSearchParams()
+    const nextPath = safeNextPath(searchParams.get("next"))
+    const { register } = useAuth()
+
+    function handleChange(e) {
+        const { name, value } = e.target
+        setForm(prev => ({ ...prev, [name]: value }))
+    }
+
+    async function handleSubmit(e) {
+        e.preventDefault()
+        if (submitting) return
+        const email = form.email.trim()
+        if (!email) return setMessage("Enter your email address.")
+        if (form.password.length < 10 || form.password.length > 128) return setMessage("Password must be 10 to 128 characters.")
+        if (form.password !== form.confirm) return setMessage("Passwords do not match.")
+        const displayName = [form.firstName.trim(), form.lastName.trim()].filter(Boolean).join(" ")
+        setSubmitting(true)
+        setMessage("")
+        try {
+            await register(email, form.password, displayName || undefined)
+            navigate(nextPath, { replace: true })
+        } catch (err) {
+            setMessage(err?.code === "email-taken"
+                ? "An account with this email already exists. Log in instead."
+                : err?.message || "Could not create the account.")
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
     return (
         <div
             className="h-screen w-screen overflow-hidden flex items-center justify-center"
@@ -15,7 +56,7 @@ const RegisterPage = () => {
             }}
         >
             {/* White card in center */}
-            <div className="bg-white shadow-2xl px-10 py-10 w-[420px] flex flex-col gap-y-4 overflow-y-auto max-h-[90vh]">
+            <form onSubmit={handleSubmit} noValidate className="bg-white shadow-2xl px-10 py-10 w-[420px] flex flex-col gap-y-4 overflow-y-auto max-h-[90vh]">
 
                 <figure className="flex justify-center mb-2">
                     <img src={gym_bud_logo} alt="gym-bud-logo" className="w-32"
@@ -26,39 +67,28 @@ const RegisterPage = () => {
                 <h1 className="text-xl font-bold text-center text-[#1c1c1a]">Create Account</h1>
 
                 <div className="flex flex-row gap-x-3">
-                    <input
-                        placeholder="First Name"
-                        className="focus:outline-none focus:ring-2 focus:ring-green-600 bg-[#f9f9fa] rounded-lg px-4 py-3 w-full text-sm"
-                    />
-                    <input
-                        placeholder="Last Name"
-                        className="focus:outline-none focus:ring-2 focus:ring-green-600 bg-[#f9f9fa] rounded-lg px-4 py-3 w-full text-sm"
-                    />
+                    <input name="firstName" value={form.firstName} onChange={handleChange} autoComplete="given-name" aria-label="First Name"
+                        placeholder="First Name" className={inputClass} />
+                    <input name="lastName" value={form.lastName} onChange={handleChange} autoComplete="family-name" aria-label="Last Name"
+                        placeholder="Last Name" className={inputClass} />
                 </div>
 
-                <input
-                    type="email"
-                    placeholder="Email Address"
-                    className="focus:outline-none focus:ring-2 focus:ring-green-600 bg-[#f9f9fa] rounded-lg px-4 py-3 w-full text-sm"
-                />
+                <input type="email" name="email" value={form.email} onChange={handleChange} autoComplete="email" aria-label="Email Address"
+                    placeholder="Email Address" className={inputClass} />
 
-                <input
-                    type="password"
-                    placeholder="Password"
-                    className="focus:outline-none focus:ring-2 focus:ring-green-600 bg-[#f9f9fa] rounded-lg px-4 py-3 w-full text-sm"
-                />
+                <input type="password" name="password" value={form.password} onChange={handleChange} autoComplete="new-password" aria-label="Password"
+                    placeholder="Password (10 to 128 characters)" className={inputClass} />
 
-                <input
-                    type="password"
-                    placeholder="Confirm Password"
-                    className="focus:outline-none focus:ring-2 focus:ring-green-600 bg-[#f9f9fa] rounded-lg px-4 py-3 w-full text-sm"
-                />
+                <input type="password" name="confirm" value={form.confirm} onChange={handleChange} autoComplete="new-password" aria-label="Confirm Password"
+                    placeholder="Confirm Password" className={inputClass} />
 
-                <CaptchaPlaceholder onVerify={(verified) => console.log("captcha:", verified)} />
+                <CaptchaPlaceholder />
 
-                <button className="py-3 bg-green-600 hover:bg-green-700 transition text-white rounded-xl w-full font-bold text-sm">
-                    Create Account
+                <button type="submit" disabled={submitting} className="py-3 bg-green-600 hover:bg-green-700 transition text-white rounded-xl w-full font-bold text-sm disabled:opacity-60">
+                    {submitting ? "Creating account…" : "Create Account"}
                 </button>
+
+                {message && <p role="alert" className="text-sm text-center text-red-500">{message}</p>}
 
                 <div className="flex items-center gap-x-3">
                     <div className="flex-1 border-t border-gray-200"/>
@@ -66,7 +96,7 @@ const RegisterPage = () => {
                     <div className="flex-1 border-t border-gray-200"/>
                 </div>
 
-                <button className="rounded-3xl px-4 py-3 w-full border border-gray-200 flex items-center justify-center gap-x-3 text-sm font-medium hover:bg-gray-50 transition">
+                <button type="button" disabled title="Not available yet" className="rounded-3xl px-4 py-3 w-full border border-gray-200 flex items-center justify-center gap-x-3 text-sm font-medium transition opacity-50 cursor-not-allowed">
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -76,7 +106,7 @@ const RegisterPage = () => {
                     Sign up with Google
                 </button>
 
-                <button className="rounded-3xl px-4 py-3 w-full border border-gray-200 flex items-center justify-center gap-x-3 text-sm font-medium hover:bg-gray-50 transition">
+                <button type="button" disabled title="Not available yet" className="rounded-3xl px-4 py-3 w-full border border-gray-200 flex items-center justify-center gap-x-3 text-sm font-medium transition opacity-50 cursor-not-allowed">
                     <svg className="w-5 h-5" fill="#000000" viewBox="0 0 24 24">
                         <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
                     </svg>
@@ -85,10 +115,10 @@ const RegisterPage = () => {
 
                 <p className="text-center text-sm text-gray-500">
                     Already a member?{" "}
-                    <a href="/login" className="text-green-600 font-semibold hover:underline">Log in</a>
+                    <Link to={`/login?next=${encodeURIComponent(nextPath)}`} className="text-green-600 font-semibold hover:underline">Log in</Link>
                 </p>
 
-            </div>
+            </form>
         </div>
     )
 }

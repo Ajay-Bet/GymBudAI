@@ -1,7 +1,8 @@
 import gym_bud_logo from "../assets/gym-bud-logo.svg"
 import hero_page_bg from "../assets/hero-page-bg.png"
-const token = localStorage.getItem("token");
+import { useAuth } from "../auth/AuthContext"
 const HomeHero = () => {
+    const { status } = useAuth();
     return (
         <>
             {/* Hero Section */}
@@ -38,13 +39,13 @@ const HomeHero = () => {
                     </div>
         
                     {/* Login */}
-                    {token ? (
-    <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
-        👤
-    </div>
-) : (
-    <button>Login</button>
-)}
+                    {status === "signed-in" ? (
+                        <a href="/history" aria-label="Workout history" className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
+                            👤
+                        </a>
+                    ) : (
+                        <a href="/login">Login</a>
+                    )}
                     </nav>
         
                     {/* Main Content - Hero */}
