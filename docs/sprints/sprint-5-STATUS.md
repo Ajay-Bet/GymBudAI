@@ -1,6 +1,6 @@
 # Sprint 05 — User accounts and workout storage
 
-Status: **completed 2026-10-04** on the evidence below (local and staging Cloud SQL). Push and merge pending Ajay's confirmation.
+Status: **completed 2026-10-04** on the evidence below (local and staging Cloud SQL). Pushed and merged to `main` (e8cd228) on Ajay's request, 2026-10-05.
 Last updated: 2026-10-04
 
 ## Scope and acceptance criteria
@@ -122,5 +122,5 @@ Full field names are fixed here before parallel work (Sprint 4 retrospective). J
 - **Retrospective:** improvement — render every new page with real-shaped data in a DOM test before the live run (the blank `/history` crash passed all agent checks). Owner: Sprint 6 lead. Check at the Sprint 6 start. The Sprint 4 retrospective item (agree full field names before parallel work) was applied: no field-name mismatches between agents this sprint.
 - **Agents:** `s5-` agents retired in `.claude/AGENT-MAP.md`; component files `c-backend`, `c-frontend-app`, `c-camera-ui`, `c-infra`, `c-validation`, `c-docs` updated.
 - **Branch:** `claude/project-thread-pj88q3`, commit "Sprint 5 completed". `.claude/launch.json` (untracked before the sprint) is left uncommitted.
-- **Exact next action:** Ajay confirms push and merge to `main`; then Sprint 6 (analytics) in a new chat.
+- **Exact next action:** check the first GitHub Actions run of `backend.yml`; then Sprint 6 (analytics) in a new chat.
 
