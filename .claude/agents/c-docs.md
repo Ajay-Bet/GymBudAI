@@ -60,3 +60,7 @@ Update this file in the same change whenever any of these happen to this compone
 - **Evidence:** 328 backend, 322 Node, 48 DOM tests; lint/build/compile pass; local and rollback-isolated staging benchmarks saved, 1000 workouts/3000 reps under one second for the measured single-client request path. Browser production demo includes null ROM, low tracking, overlap, configuration separation and empty states; synthetic, not physical validation.
 - **Carryover:** apply migration `0002_analytics_index` and restart existing app API for rollout; no staging application database was changed, no Cloud Run deployment or remote CI rerun. Earlier detector/device limitations retained.
 - **Lesson:** unknown persisted configuration must remain distinct from an empty assessed-rule list. Save performance environment and query plans alongside timing; avoid rewriting earlier handoffs when resolving later carryover.
+
+## Sprint 6 publication/activation — 2026-10-04
+
+- User authorized main publication and activation. Handoff now records source9162b32, successful remote CI, actual staging app migration/index with preserved record counts, original-config API and frontend restart, active route/proxy verification. Previous benchmark rollback remains historical evidence. Rollout carryover is resolved; no deployed Cloud Run or authenticated real-user browser demo claimed.
