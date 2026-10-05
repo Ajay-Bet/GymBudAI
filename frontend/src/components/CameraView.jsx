@@ -25,10 +25,23 @@ import CoachingPanel from './CoachingPanel.jsx';
 import SetFeedbackPanel from './SetFeedbackPanel.jsx';
 import SetControls from './SetControls.jsx';
 import CalibrationProgress from './CalibrationProgress.jsx';
+import SaveWorkoutPanel from './SaveWorkoutPanel.jsx';
+import { useAuth } from '../auth/AuthContext.jsx';
+import { createSaveQueue } from '../api/saveQueue.js';
+import { buildWorkoutSetPayload, checkSavable } from '../api/workoutPayload.js';
 
 const EMPTY_METRICS = { captureFps: 0, poseFps: 0, inferenceMs: 0, overlayMs: 0, joints: 'Not assessed' };
 const INITIAL_TRACKING = { state: 'lost', message: 'Start the camera to begin tracking.' };
 const EXERCISE_ID = 'dumbbell-curl';
+
+// Sprint 5: one workout per camera page; its client id is created on the first finished set.
+function newClientSessionId() {
+  const uuid = globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+  return `workout-${uuid}`;
+}
+function browserTimezone() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { return null; }
+}
 
 // Gives one scheduler its own view of the shared speech adapter so its onEnd subscriptions can be removed on
 // effect cleanup (React StrictMode runs effects twice; without this the first scheduler would stay subscribed).
@@ -232,6 +245,41 @@ const CameraView = () => {
   const [volume, setVolume] = useState(1);
   const [reviewMode, setReviewMode] = useState(false);
   const [modelState, setModelState] = useState(null);
+  // Sprint 5 persistence: the queue keeps finished set summaries (in this browser) until they are saved or dismissed.
+  const auth = useAuth();
+  const authRef = useRef(auth);
+  authRef.current = auth;
+  // The queue is created on mount and destroyed on unmount (StrictMode re-creates it on its second mount).
+  const queueRef = useRef(null);
+  const getQueue = () => { if (!queueRef.current) queueRef.current = createSaveQueue(); return queueRef.current; };
+  const userId = auth?.user?.id ?? null;
+  const [saveEntries, setSaveEntries] = useState([]);
+  const [queuePersistent, setQueuePersistent] = useState(true);
+  const [saveNotice, setSaveNotice] = useState(null);
+  const workoutRef = useRef(null); // { clientSessionId, startedAt } for this page's current workout
+  const [workoutId, setWorkoutId] = useState(null);
+  const [finalizeStates, setFinalizeStates] = useState({});
+  const [lastFinalized, setLastFinalized] = useState(null);
+  // Only this user's entries and unowned (signed-out) ones are shown; other accounts' entries stay hidden in storage.
+  useEffect(() => {
+    const queue = getQueue();
+    const refresh = () => {
+      setSaveEntries(queue.list({ userId: authRef.current?.user?.id ?? null }));
+      setQueuePersistent(queue.isPersistent());
+    };
+    refresh();
+    const off = queue.subscribe(refresh);
+    return () => { off(); queue.destroy(); if (queueRef.current === queue) queueRef.current = null; };
+  }, []);
+  // Signed in (on load or later): save this user's (and unowned) entries still waiting. Failed entries wait for Retry.
+  useEffect(() => {
+    const queue = getQueue();
+    setSaveEntries(queue.list({ userId }));
+    if (auth?.status !== 'signed-in' || !auth.token || !userId) return;
+    for (const entry of queue.list({ userId })) {
+      if (entry.status === 'pending') queue.save(entry.id, auth.token, { userId }).catch(() => {});
+    }
+  }, [auth?.status, auth?.token, userId]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
@@ -561,11 +609,68 @@ const CameraView = () => {
     publishSet(runtime);
     setResult(completed);
     setWording(null);
+    queueSetSave(completed, runtime.analyzer.getSession().completedReps);
     if (runtime.speech.outputMode === 'audio-text' && !runtime.speech.muted) {
       const text = describeSetFeedback(completed.findings, completed.score, completed.summary);
       narrate(text.narration);
     }
     return completed;
+  };
+  // Enqueue a just-finished set; saving is async and never blocks the render loop or the panels above.
+  const queueSetSave = (completed, completedReps) => {
+    const savable = checkSavable(completed.summary);
+    if (!savable.ok) {
+      // Nothing to store (e.g. finished before any tracked frame): no workout or entry is created.
+      setSaveNotice(savable.message);
+      return;
+    }
+    setSaveNotice(null);
+    try {
+      const queue = getQueue();
+      const payload = buildWorkoutSetPayload({ summary: completed.summary, completedReps: completedReps ?? [], endedAt: new Date() });
+      if (!workoutRef.current) {
+        workoutRef.current = { clientSessionId: newClientSessionId(), startedAt: payload.startedAt };
+        setWorkoutId(workoutRef.current.clientSessionId);
+        setLastFinalized(null);
+      }
+      const { status, token, user } = authRef.current ?? {};
+      const ownerId = status === 'signed-in' ? user?.id ?? null : null;
+      const entry = queue.enqueue({ clientSessionId: workoutRef.current.clientSessionId, exerciseId: completed.summary.exerciseId ?? EXERCISE_ID,
+        workoutStartedAt: workoutRef.current.startedAt, timezone: browserTimezone(), payload, ownerId });
+      if (status === 'signed-in' && token) queue.save(entry.id, token, { userId: user?.id ?? null }).catch(() => {});
+    } catch (failure) {
+      // A summary that cannot be turned into a payload stays on screen; saving it is reported, not thrown.
+      setError(`This set could not be prepared for saving: ${failure?.message ?? failure}`);
+    }
+  };
+  const currentUserId = () => authRef.current?.user?.id ?? null;
+  const retrySave = (id) => { getQueue().retry(id, authRef.current?.token, { userId: currentUserId() }).catch(() => {}); };
+  const dismissSave = (id) => getQueue().dismiss(id);
+  const finishWorkout = async (clientSessionId) => {
+    const queue = getQueue();
+    const finalizingUser = currentUserId();
+    const sessionEntries = queue.list({ userId: finalizingUser }).filter((entry) => entry.clientSessionId === clientSessionId);
+    const isCurrent = workoutRef.current?.clientSessionId === clientSessionId;
+    // The current workout ends now; an earlier (restored) one ends at its last set.
+    const lastSetEnd = sessionEntries.map((entry) => entry.payload?.endedAt).filter(Boolean).sort().at(-1);
+    const endedAt = isCurrent || !lastSetEnd ? new Date() : lastSetEnd;
+    setFinalizeStates((states) => ({ ...states, [clientSessionId]: { status: 'finalizing' } }));
+    try {
+      const detail = await queue.finalize(clientSessionId, endedAt, authRef.current?.token, { userId: finalizingUser });
+      if (!runtimeRef.current.mounted) return;
+      // The workout is stored and closed on the server; its local copies are no longer needed.
+      sessionEntries.forEach((entry) => queue.dismiss(entry.id));
+      if (workoutRef.current?.clientSessionId === clientSessionId) { workoutRef.current = null; setWorkoutId(null); }
+      setFinalizeStates((states) => { const rest = { ...states }; delete rest[clientSessionId]; return rest; });
+      setLastFinalized({ workoutId: detail?.id ?? sessionEntries.find((entry) => entry.savedWorkoutId)?.savedWorkoutId ?? null });
+    } catch (failure) {
+      if (!runtimeRef.current.mounted) return;
+      setFinalizeStates((states) => ({ ...states, [clientSessionId]: { status: 'error', message: failure?.message || 'Unknown error.' } }));
+    }
+  };
+  const loginPath = () => {
+    const here = typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : '/';
+    return `/login?next=${encodeURIComponent(here)}`;
   };
   const applySide = (value) => {
     const runtime = runtimeRef.current;
@@ -770,6 +875,9 @@ const CameraView = () => {
           onImproveWording={improveWording} audioMode={outputMode === 'audio-text'} narrationStatus={narrationStatus}
           onReplayNarration={() => narrate((wording?.text ?? feedbackText).narration)} onStopNarration={stopNarration}
           voiceDisclosure={aiVoice ? AI_VOICE_DISCLOSURE : null} />
+        <SaveWorkoutPanel entries={saveEntries} currentSessionId={workoutId} authStatus={auth?.status ?? 'signed-out'}
+          persistent={queuePersistent} notice={saveNotice} finalizeStates={finalizeStates} lastFinalized={lastFinalized} loginPath={loginPath()}
+          onRetry={retrySave} onDismiss={dismissSave} onFinish={finishWorkout} />
         <details className="mt-5 text-sm text-gray-300">
           <summary className="cursor-pointer">Developer performance and tracking</summary>
           {import.meta.env.DEV && <p className="mt-2">Elbow flexion comparison — raw: {Number.isFinite(features?.raw?.elbowFlexionDeg) ? `${features.raw.elbowFlexionDeg.toFixed(1)} °` : 'Not assessed'} · smoothed: {Number.isFinite(features?.smoothed?.elbowFlexionDeg) ? `${features.smoothed.elbowFlexionDeg.toFixed(1)} °` : 'Not assessed'}</p>}
@@ -786,7 +894,7 @@ const CameraView = () => {
           <p>Required {side} joint visibility/presence scores (0–1): {metrics.joints}</p>
           <p>Visibility/presence score cutoff: 0.5 · Reacquisition: 300 ms · Stale overlay cutoff: 500 ms</p>
           <p>These model scores are tracking signals, not probabilities of correct form.</p>
-          <p>One frame in flight; busy frames are skipped. Measurements are local and are not saved.</p>
+          <p>One frame in flight; busy frames are skipped. Frames and landmarks stay on this device; only finished set summaries are saved, and only when you are signed in.</p>
         </details>
         </div>
         </div>

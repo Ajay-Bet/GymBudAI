@@ -17,6 +17,11 @@ export default defineConfig({
       '/api/coach': {
         target: 'http://127.0.0.1:8080',
       },
+      // Sprint 5 accounts and workout storage (FastAPI). Development only; not production routing.
+      '/api/auth': { target: 'http://127.0.0.1:8080' },
+      '/api/users': { target: 'http://127.0.0.1:8080' },
+      '/api/exercises': { target: 'http://127.0.0.1:8080' },
+      '/api/workouts': { target: 'http://127.0.0.1:8080' },
     },
   },
 })

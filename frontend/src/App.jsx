@@ -11,11 +11,14 @@ import LoginPage from "./pages/LoginPage"
 import RegisterPage from "./pages/RegisterPage"
 import ResetPasswordPage from "./pages/ResetPasswordPage"
 import HealthCheck from "./pages/HealthCheck"
+import HistoryPage from "./pages/HistoryPage"
+import { AuthProvider } from "./auth/AuthContext"
 
 
 function App() {
 
   return (
+    <AuthProvider>
     <BrowserRouter>
       <Routes>
         {import.meta.env.DEV && <Route path="/dev/health" element={<HealthCheck/>}/>}
@@ -25,8 +28,11 @@ function App() {
         <Route path ="/register" element={<RegisterPage/>}/>
         <Route path ="/reset-password" element={<ResetPasswordPage/>}/>
         <Route path ="/playground" element={<Playground/>}/>
+        <Route path="/history" element={<HistoryPage/>}/>
+        <Route path="/history/:workoutId" element={<HistoryPage/>}/>
       </Routes>
     </BrowserRouter>
+    </AuthProvider>
   );
 }
 
